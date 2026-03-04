@@ -20,12 +20,21 @@
 <div class="flex h-full w-full flex-col md:flex-row">
     
     <!-- 左側 2/3：實物投影機視訊區 -->
-    <div class="w-full md:w-2/3 bg-black relative flex flex-col items-center justify-center p-4 h-1/2 md:h-full">
+    <div id="videoContainer" class="w-full md:w-2/3 bg-black relative flex flex-col items-center justify-center p-4 h-1/2 md:h-full">
         <!-- 攝影機選單懸浮於左上角 -->
         <div class="absolute top-4 left-4 z-10 bg-white/90 p-2 rounded-lg shadow flex items-center gap-2">
             <span class="text-sm font-bold text-gray-700">視訊來源：</span>
             <select id="cameraSelect" class="border border-gray-300 rounded p-1 text-sm outline-none cursor-pointer max-w-[150px] md:max-w-xs"></select>
         </div>
+        
+        <!-- 全螢幕按鈕懸浮於右上角 -->
+        <button id="fullscreenBtn" class="absolute top-4 right-4 z-10 bg-white/90 p-2 rounded-lg shadow hover:bg-white transition-colors flex items-center justify-center cursor-pointer" title="切換全螢幕">
+            <!-- 進入全螢幕圖示 -->
+            <svg id="fs-enter-icon" class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+            <!-- 退出全螢幕圖示 (預設隱藏) -->
+            <svg id="fs-exit-icon" class="w-5 h-5 text-gray-700 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 14h6m0 0v6m0-6l-7 7m17-11h-6m0 0V4m0 6l7-7M4 10h6m0 0V4m0 6l-7-7m17 11h-6m0 0v6m0-6l7 7"></path></svg>
+        </button>
+
         <video id="video" class="w-full h-full object-contain border border-gray-800 rounded shadow-2xl bg-gray-900" autoplay playsinline></video>
     </div>
 
@@ -99,6 +108,45 @@
         let val = i < 10 ? '0' + i : i;
         classSelect.innerHTML += `<option value="${val}">${val} 班</option>`;
     }
+
+    // --- 全螢幕控制邏輯 ---
+    const videoContainer = document.getElementById('videoContainer');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    const fsEnterIcon = document.getElementById('fs-enter-icon');
+    const fsExitIcon = document.getElementById('fs-exit-icon');
+
+    fullscreenBtn.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+            // 進入全螢幕
+            if (videoContainer.requestFullscreen) {
+                videoContainer.requestFullscreen();
+            } else if (videoContainer.webkitRequestFullscreen) { /* Safari */
+                videoContainer.webkitRequestFullscreen();
+            } else if (videoContainer.msRequestFullscreen) { /* IE11 */
+                videoContainer.msRequestFullscreen();
+            }
+        } else {
+            // 退出全螢幕
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) { /* Safari */
+                document.webkitExitFullscreen();
+            } else if (document.msExitFullscreen) { /* IE11 */
+                document.msExitFullscreen();
+            }
+        }
+    });
+
+    // 監聽全螢幕狀態改變以切換按鈕圖示
+    document.addEventListener('fullscreenchange', () => {
+        if (document.fullscreenElement) {
+            fsEnterIcon.classList.add('hidden');
+            fsExitIcon.classList.remove('hidden');
+        } else {
+            fsEnterIcon.classList.remove('hidden');
+            fsExitIcon.classList.add('hidden');
+        }
+    });
 
     // --- 攝影機控制邏輯 ---
     const video = document.getElementById('video');
@@ -425,15 +473,15 @@
             
             if (result.status === 'success') {
                 setTableData(result.data);
-                if (!isSilent) alert('✅ 紀錄提取成功！');
+                if (!isSilent) showModal('讀取成功', '✅ 紀錄提取成功！', 'success');
             } else if (result.status === 'empty') {
                 clearTableData();
-                if (!isSilent) alert('ℹ️ 此班級尚未有該實驗的儲存紀錄。');
+                if (!isSilent) showModal('提示', 'ℹ️ 此班級尚未有該實驗的儲存紀錄。', 'info');
             } else {
-                if (!isSilent) alert('❌ 讀取失敗：' + result.message);
+                if (!isSilent) showModal('讀取失敗', '❌ ' + result.message, 'error');
             }
         } catch (e) {
-            if (!isSilent) alert('❌ 連線異常，請確認 GAS 網址與權限設定。');
+            if (!isSilent) showModal('連線異常', '❌ 請確認 GAS 網址與權限設定。', 'error');
             console.error(e);
         }
 
