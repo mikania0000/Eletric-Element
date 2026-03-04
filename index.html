@@ -55,9 +55,10 @@
             <div class="flex items-center">
                 <label class="text-sm font-bold text-gray-700 mr-2 w-10">單元</label>
                 <select id="expSelect" class="flex-1 border rounded p-1.5 outline-none focus:ring-2 focus:ring-blue-300 font-bold text-blue-800 text-sm md:text-base">
-                    <option value="exp1">實驗一：固定電阻 (測量V-I關係)</option>
-                    <option value="exp2">實驗二：電阻串聯</option>
-                    <option value="exp3">實驗三：電阻並聯與迴路</option>
+                    <option value="exp1">1. 實驗一：固定電阻 (測量V-I關係)</option>
+                    <option value="exp2">2. 實驗二：電阻串聯</option>
+                    <option value="exp3">3. 實驗三：電阻並聯</option>
+                    <option value="exp4">4. 實驗四：並聯兩個電阻</option>
                 </select>
             </div>
         </div>
@@ -188,16 +189,17 @@
     // --- 表格動態渲染邏輯 ---
     const tableContainer = document.getElementById('table-container');
     const expSelect = document.getElementById('expSelect');
+    const gradeSelect = document.getElementById('gradeSelect');
 
     function renderTable() {
         const val = expSelect.value;
         let html = '';
         
-        // 實驗一：固定電阻 (學習單的實驗三)
+        // 實驗一：固定電阻
         if (val === 'exp1') {
             html = `
                 <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                    <h3 class="font-bold text-lg mb-2 text-blue-800 border-b-2 border-blue-100 pb-2">1. 實驗三：固定電阻 (1000Ω)</h3>
+                    <h3 class="font-bold text-lg mb-2 text-blue-800 border-b-2 border-blue-100 pb-2">1. 實驗一：固定電阻 (1000Ω棕黑紅金)</h3>
                     <p class="text-sm text-gray-600 mb-3">測量電壓與電流關係。</p>
                     <div class="overflow-x-auto">
                         <table class="w-full text-center border-collapse text-sm mb-4 min-w-[300px]">
@@ -219,20 +221,20 @@
                 </div>
             `;
         } 
-        // 實驗二：電阻串聯 (學習單的實驗一)
+        // 實驗二：電阻串聯
         else if (val === 'exp2') {
             html = `
                 <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                    <h3 class="font-bold text-lg mb-3 text-blue-800 border-b-2 border-blue-100 pb-2">1. 實驗一：電阻串聯 (固定 3V)</h3>
+                    <h3 class="font-bold text-lg mb-3 text-blue-800 border-b-2 border-blue-100 pb-2">2. 實驗二：電阻串聯 (固定 3V)</h3>
                     <div class="overflow-x-auto">
                         <table class="w-full text-center border-collapse text-sm mb-4 min-w-[400px]">
                             <thead>
                                 <tr class="bg-blue-50 text-blue-900"><th class="border border-blue-200 p-2">電阻</th><th class="border border-blue-200 p-2">總阻值(Ω)</th><th class="border border-blue-200 p-2">電壓(V)</th><th class="border border-blue-200 p-2">電流(mA)</th><th class="border border-blue-200 p-2">比值(V/I)</th></tr>
                             </thead>
                             <tbody>
-                                <tr><td class="border p-2 whitespace-nowrap text-xs text-left">1個:<input type="text" class="w-8 border-b border-gray-400 outline-none bg-transparent ml-1"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1 input-v" value="3"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1 input-i"></td><td class="border p-2 font-bold text-blue-600 result-r bg-gray-50">-</td></tr>
-                                <tr><td class="border p-2 whitespace-nowrap text-xs text-left">2個:<input type="text" class="w-6 border-b border-gray-400 outline-none bg-transparent mx-1">+<input type="text" class="w-6 border-b border-gray-400 outline-none bg-transparent mx-1"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1 input-v" value="3"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1 input-i"></td><td class="border p-2 font-bold text-blue-600 result-r bg-gray-50">-</td></tr>
-                                <tr><td class="border p-2 whitespace-nowrap text-xs text-left">3個:<input type="text" class="w-4 border-b border-gray-400 outline-none bg-transparent mx-0.5">+<input type="text" class="w-4 border-b border-gray-400 outline-none bg-transparent mx-0.5">+<input type="text" class="w-4 border-b border-gray-400 outline-none bg-transparent mx-0.5"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1 input-v" value="3"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1 input-i"></td><td class="border p-2 font-bold text-blue-600 result-r bg-gray-50">-</td></tr>
+                                <tr><td class="border p-2 whitespace-nowrap text-xs text-left">1個:<input type="text" class="w-8 border-b border-gray-400 outline-none bg-transparent ml-1"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1 input-v"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1 input-i"></td><td class="border p-2 font-bold text-blue-600 result-r bg-gray-50">-</td></tr>
+                                <tr><td class="border p-2 whitespace-nowrap text-xs text-left">2個:<input type="text" class="w-6 border-b border-gray-400 outline-none bg-transparent mx-1">+<input type="text" class="w-6 border-b border-gray-400 outline-none bg-transparent mx-1"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1 input-v"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1 input-i"></td><td class="border p-2 font-bold text-blue-600 result-r bg-gray-50">-</td></tr>
+                                <tr><td class="border p-2 whitespace-nowrap text-xs text-left">3個:<input type="text" class="w-4 border-b border-gray-400 outline-none bg-transparent mx-0.5">+<input type="text" class="w-4 border-b border-gray-400 outline-none bg-transparent mx-0.5">+<input type="text" class="w-4 border-b border-gray-400 outline-none bg-transparent mx-0.5"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1 input-v"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1 input-i"></td><td class="border p-2 font-bold text-blue-600 result-r bg-gray-50">-</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -242,20 +244,20 @@
                 </div>
             `;
         } 
-        // 實驗三：電阻並聯與迴路 (學習單的實驗二 + 承接實驗二)
+        // 實驗三：電阻並聯
         else if (val === 'exp3') {
             html = `
                 <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-4">
-                    <h3 class="font-bold text-lg mb-3 text-blue-800 border-b-2 border-blue-100 pb-2">2. 實驗二：電阻並聯 (固定 3V)</h3>
+                    <h3 class="font-bold text-lg mb-3 text-blue-800 border-b-2 border-blue-100 pb-2">3. 實驗三：電阻並聯 (固定 3V)</h3>
                     <div class="overflow-x-auto">
                         <table class="w-full text-center border-collapse text-xs mb-4 min-w-[400px]">
                             <thead>
                                 <tr class="bg-blue-50 text-blue-900"><th class="border border-blue-200 p-1">電阻</th><th class="border border-blue-200 p-1">總阻值(Ω)</th><th class="border border-blue-200 p-1">電壓(V)</th><th class="border border-blue-200 p-1">總電流(mA)</th><th class="border border-blue-200 p-1">比值(V/I)</th></tr>
                             </thead>
                             <tbody>
-                                <tr><td class="border p-1 whitespace-nowrap text-left">1個:<input type="text" class="w-6 border-b border-gray-400 outline-none bg-transparent ml-1"></td><td class="border p-1"><input type="number" class="w-full text-center bg-yellow-50 outline-none"></td><td class="border p-1"><input type="number" class="w-full text-center bg-yellow-50 outline-none input-v" value="3"></td><td class="border p-1"><input type="number" class="w-full text-center bg-yellow-50 outline-none input-i"></td><td class="border p-1 font-bold text-blue-600 result-r bg-gray-50">-</td></tr>
-                                <tr><td class="border p-1 whitespace-nowrap text-left">2個:<input type="text" class="w-4 border-b border-gray-400 outline-none bg-transparent mx-0.5">+<input type="text" class="w-4 border-b border-gray-400 outline-none bg-transparent mx-0.5"></td><td class="border p-1"><input type="number" class="w-full text-center bg-yellow-50 outline-none"></td><td class="border p-1"><input type="number" class="w-full text-center bg-yellow-50 outline-none input-v" value="3"></td><td class="border p-1"><input type="number" class="w-full text-center bg-yellow-50 outline-none input-i"></td><td class="border p-1 font-bold text-blue-600 result-r bg-gray-50">-</td></tr>
-                                <tr><td class="border p-1 whitespace-nowrap text-left">3個:<input type="text" class="w-3 border-b border-gray-400 outline-none bg-transparent mx-0.5">+<input type="text" class="w-3 border-b border-gray-400 outline-none bg-transparent mx-0.5">+<input type="text" class="w-3 border-b border-gray-400 outline-none bg-transparent mx-0.5"></td><td class="border p-1"><input type="number" class="w-full text-center bg-yellow-50 outline-none"></td><td class="border p-1"><input type="number" class="w-full text-center bg-yellow-50 outline-none input-v" value="3"></td><td class="border p-1"><input type="number" class="w-full text-center bg-yellow-50 outline-none input-i"></td><td class="border p-1 font-bold text-blue-600 result-r bg-gray-50">-</td></tr>
+                                <tr><td class="border p-1 whitespace-nowrap text-left">1個:<input type="text" class="w-6 border-b border-gray-400 outline-none bg-transparent ml-1"></td><td class="border p-1"><input type="number" class="w-full text-center bg-yellow-50 outline-none"></td><td class="border p-1"><input type="number" class="w-full text-center bg-yellow-50 outline-none input-v"></td><td class="border p-1"><input type="number" class="w-full text-center bg-yellow-50 outline-none input-i"></td><td class="border p-1 font-bold text-blue-600 result-r bg-gray-50">-</td></tr>
+                                <tr><td class="border p-1 whitespace-nowrap text-left">2個:<input type="text" class="w-4 border-b border-gray-400 outline-none bg-transparent mx-0.5">+<input type="text" class="w-4 border-b border-gray-400 outline-none bg-transparent mx-0.5"></td><td class="border p-1"><input type="number" class="w-full text-center bg-yellow-50 outline-none"></td><td class="border p-1"><input type="number" class="w-full text-center bg-yellow-50 outline-none input-v"></td><td class="border p-1"><input type="number" class="w-full text-center bg-yellow-50 outline-none input-i"></td><td class="border p-1 font-bold text-blue-600 result-r bg-gray-50">-</td></tr>
+                                <tr><td class="border p-1 whitespace-nowrap text-left">3個:<input type="text" class="w-3 border-b border-gray-400 outline-none bg-transparent mx-0.5">+<input type="text" class="w-3 border-b border-gray-400 outline-none bg-transparent mx-0.5">+<input type="text" class="w-3 border-b border-gray-400 outline-none bg-transparent mx-0.5"></td><td class="border p-1"><input type="number" class="w-full text-center bg-yellow-50 outline-none"></td><td class="border p-1"><input type="number" class="w-full text-center bg-yellow-50 outline-none input-v"></td><td class="border p-1"><input type="number" class="w-full text-center bg-yellow-50 outline-none input-i"></td><td class="border p-1 font-bold text-blue-600 result-r bg-gray-50">-</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -263,9 +265,13 @@
                         <span class="font-bold">結論：</span><input type="text" class="flex-1 border-b border-gray-400 outline-none ml-2">
                     </div>
                 </div>
-
+            `;
+        }
+        // 實驗四：並聯兩個電阻
+        else if (val === 'exp4') {
+            html = `
                 <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                    <h3 class="font-bold text-md mb-3 text-green-700 border-b-2 border-green-100 pb-2">3. 承接實驗二，觀察每一個迴路</h3>
+                    <h3 class="font-bold text-md mb-3 text-green-700 border-b-2 border-green-100 pb-2">4. 實驗四：並聯兩個電阻，觀察每一個迴路的電壓及電流</h3>
                     <div class="overflow-x-auto">
                         <table class="w-full text-center border-collapse text-sm mb-4 min-w-[350px]">
                             <thead>
@@ -290,8 +296,15 @@
         tableContainer.innerHTML = html;
     }
 
-    // 監聽單元選單改變，重新渲染表格
-    expSelect.addEventListener('change', renderTable);
+    // 監聽單元選單改變，重新渲染表格，並自動載入該單元數據
+    expSelect.addEventListener('change', () => {
+        renderTable();
+        executeLoad(true);
+    });
+
+    // 班級、年級改變時自動載入
+    gradeSelect.addEventListener('change', () => executeLoad(true));
+    classSelect.addEventListener('change', () => executeLoad(true));
 
     // --- 計算邏輯 ---
     function calculateRatio() {
@@ -333,11 +346,19 @@
         if (!dataArray || !Array.isArray(dataArray)) return;
         const inputs = document.querySelectorAll('#table-container input');
         inputs.forEach((input, index) => {
-            if (dataArray[index] !== undefined) {
+            if (dataArray[index] !== undefined && !input.readOnly) {
                 input.value = dataArray[index];
             }
         });
         calculateRatio(); // 填完資料自動計算一次
+    }
+
+    function clearTableData() {
+        const inputs = document.querySelectorAll('#table-container input');
+        inputs.forEach(input => {
+            if (!input.readOnly) input.value = '';
+        });
+        calculateRatio();
     }
 
     document.getElementById('saveBtn').addEventListener('click', async () => {
@@ -367,7 +388,7 @@
             });
             const result = await res.json();
             if (result.status === 'success') {
-                alert('✅ 儲存成功！資料已寫入 Google 試算表。');
+                alert('✅ 儲存成功！資料已寫入或覆蓋更新至 Google 試算表。');
             } else {
                 alert('❌ 儲存失敗：' + result.message);
             }
@@ -380,11 +401,8 @@
         btn.disabled = false;
     });
 
-    document.getElementById('loadBtn').addEventListener('click', async () => {
-        if (!GAS_URL || GAS_URL === '') {
-            alert('⚠️ 無效的 GAS 網址！');
-            return;
-        }
+    async function executeLoad(isSilent = false) {
+        if (!GAS_URL || GAS_URL === '') return;
 
         const btn = document.getElementById('loadBtn');
         btn.textContent = '讀取中...';
@@ -404,26 +422,33 @@
                 body: JSON.stringify(payload)
             });
             const result = await res.json();
+            
             if (result.status === 'success') {
                 setTableData(result.data);
-                alert('✅ 紀錄提取成功！');
+                if (!isSilent) alert('✅ 紀錄提取成功！');
             } else if (result.status === 'empty') {
-                alert('ℹ️ 此班級尚未有該實驗的儲存紀錄。');
+                clearTableData();
+                if (!isSilent) alert('ℹ️ 此班級尚未有該實驗的儲存紀錄。');
             } else {
-                alert('❌ 讀取失敗：' + result.message);
+                if (!isSilent) alert('❌ 讀取失敗：' + result.message);
             }
         } catch (e) {
-            alert('❌ 連線異常，請確認 GAS 網址與權限設定。');
+            if (!isSilent) alert('❌ 連線異常，請確認 GAS 網址與權限設定。');
             console.error(e);
         }
 
         btn.textContent = '提取上次紀錄';
         btn.disabled = false;
-    });
+    }
+
+    document.getElementById('loadBtn').addEventListener('click', () => executeLoad(false));
 
     // 初始化啟動
     initCamera();
     renderTable();
+
+    // 第一次啟動自動讀取一次數據
+    setTimeout(() => executeLoad(true), 500);
 
 </script>
 </body>
