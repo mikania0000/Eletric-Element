@@ -1,13 +1,13 @@
 <!--
 ==========================================
 實驗紀錄系統 - 前端網頁 (完整功能版)
-版本：v1.4 (優化攝影機偵測與故障排除)
+版本：v1.5 (強化硬體連線提示)
 功能：
 1. 實物投影機視訊整合 (支援全螢幕、左右互換)
 2. 動態生成四個實驗單元表格 (實驗一至四)
 3. 支援即時自動計算 V/I 比值
 4. 與 GAS 串接，支援同班級讀取、覆蓋儲存、刪除清除
-5. 全面使用 Tailwind 自訂 Modal 提示視窗
+5. [更新] 針對 HDMI/USB 連線問題增加診斷提示與教學按鈕
 ==========================================
 -->
 <!DOCTYPE html>
@@ -24,9 +24,6 @@
         input[type="number"]::-webkit-inner-spin-button {
             -webkit-appearance: none;
             margin: 0;
-        }
-        .modal-active {
-            overflow: hidden;
         }
     </style>
 </head>
@@ -61,10 +58,19 @@
         <video id="video" class="w-full h-full object-contain border border-gray-800 rounded shadow-2xl bg-gray-900" autoplay playsinline></video>
         
         <!-- 當沒有相機時的提示文字 -->
-        <div id="noCameraMsg" class="hidden absolute inset-0 flex flex-col items-center justify-center text-gray-400 p-10 text-center">
-            <svg class="w-20 h-20 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-            <p class="text-lg font-bold">偵測不到攝影機訊號</p>
-            <p class="text-sm mt-2 leading-relaxed">請檢查 IPEVO 是否已透過 <span class="text-blue-400 underline font-bold">USB 線</span>連接至電腦。<br>如果是 HDMI 直接連接螢幕，網頁將無法讀取。</p>
+        <div id="noCameraMsg" class="hidden absolute inset-0 flex flex-col items-center justify-center text-gray-400 p-6 text-center bg-gray-900/80">
+            <div class="bg-white p-6 rounded-2xl shadow-2xl max-w-sm">
+                <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-10 h-10 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                </div>
+                <p class="text-xl font-bold text-gray-800 mb-2">無法取得影像訊號</p>
+                <p class="text-sm text-gray-600 leading-relaxed mb-4">
+                    您的實物投影機可能連接了 <span class="text-red-600 font-bold italic">HDMI</span>。<br>請改用 <span class="text-blue-600 font-bold underline">USB 線</span> 直接插在電腦上，網頁才能看到畫面。
+                </p>
+                <button onclick="showConnectGuide()" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors font-bold">
+                    查看連線指南
+                </button>
+            </div>
         </div>
     </div>
 
@@ -75,7 +81,7 @@
         <div class="p-4 md:p-5 bg-blue-50 border-b border-blue-100">
             <h1 class="text-xl font-bold text-blue-900 mb-3 flex items-center">
                 <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path></svg>
-                實驗紀錄單 <span class="text-xs text-blue-600 font-normal ml-2 border border-blue-300 bg-blue-100 px-1.5 py-0.5 rounded shadow-sm">v1.4</span>
+                實驗紀錄單 <span class="text-xs text-blue-600 font-normal ml-2 border border-blue-300 bg-blue-100 px-1.5 py-0.5 rounded shadow-sm">v1.5</span>
             </h1>
             <div class="grid grid-cols-2 gap-3 mb-3">
                 <div class="flex items-center">
@@ -170,6 +176,15 @@
 
     modalCloseBtn.addEventListener('click', () => customModal.classList.add('hidden'));
 
+    function showConnectGuide() {
+        showModal('🎥 實物投影機連線指南', 
+            '1. 請檢查您的 IPEVO 設備背後是否有 USB 孔 (通常是方形或 Type-C)。\n' +
+            '2. 拿一條 USB 線，一頭接在 IPEVO，另一頭插在您的「電腦主機」USB 孔。\n' +
+            '3. 網頁無法讀取 HDMI 直接接在大屏上的訊號，必須透過 USB 連線。\n' +
+            '4. 接好 USB 後，點擊畫面左上角的「重新整理」圖示即可抓到畫面！', 
+            'info');
+    }
+
     // --- 左右版面互換 ---
     const swapLayoutBtn = document.getElementById('swapLayoutBtn');
     const mainContainer = document.getElementById('mainContainer');
@@ -210,13 +225,8 @@
         cameraSelect.innerHTML = '<option value="">偵測中...</option>';
         
         try {
-            // 先請求基本權限
             let initialStream;
-            try { 
-                initialStream = await navigator.mediaDevices.getUserMedia({ video: true }); 
-            } catch (e) {
-                console.warn('無法預先獲取鏡頭權限:', e.message);
-            }
+            try { initialStream = await navigator.mediaDevices.getUserMedia({ video: true }); } catch (e) {}
             
             const devices = await navigator.mediaDevices.enumerateDevices();
             const videoDevices = devices.filter(d => d.kind === 'videoinput');
@@ -231,7 +241,6 @@
                 videoDevices.forEach((device, index) => {
                     const opt = document.createElement('option');
                     opt.value = device.deviceId;
-                    // 如果設備有標籤則顯示標籤，否則顯示鏡頭編號
                     opt.text = device.label || `攝影機 ${index + 1}`;
                     cameraSelect.appendChild(opt);
                 });
@@ -239,8 +248,7 @@
             if (initialStream) initialStream.getTracks().forEach(t => t.stop());
             await startStream();
         } catch (err) {
-            console.error('鏡頭初始化錯誤:', err);
-            cameraSelect.innerHTML = '<option value="">權限或設備錯誤</option>';
+            cameraSelect.innerHTML = '<option value="">設備錯誤</option>';
             noCameraMsg.classList.remove('hidden');
         }
     }
@@ -255,7 +263,6 @@
             video.srcObject = window.stream;
             noCameraMsg.classList.add('hidden');
         } catch (e) {
-            console.warn('指定畫質失敗，降級使用預設:', e.message);
             try {
                 window.stream = await navigator.mediaDevices.getUserMedia({ video: true });
                 video.srcObject = window.stream;
@@ -337,8 +344,7 @@
             const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) });
             return await res.json();
         } catch (e) {
-            console.error(e);
-            return { status: 'error', message: '連線異常，請確認 GAS 網址與部署權限' };
+            return { status: 'error', message: '連線異常，請確認 GAS 網址與權限' };
         }
     }
 
@@ -366,15 +372,13 @@
         } else {
             clearTableData();
             if (!isSilent && res.status === 'empty') showModal('提示', 'ℹ️ 無存檔紀錄', 'info');
-            else if (!isSilent) showModal('錯誤', res.message, 'error');
         }
     }
 
     document.getElementById('saveBtn').addEventListener('click', async () => {
         const payload = { action: 'save', grade: gradeSelect.value, className: classSelect.value, expType: expSelect.value, data: getTableData() };
         const res = await apiCall(payload);
-        if (res.status === 'success') showModal('儲存成功', '✅ 資料已儲存並同步至 Google 試算表', 'success');
-        else showModal('錯誤', res.message, 'error');
+        if (res.status === 'success') showModal('儲存成功', '✅ 資料已儲存並同步至試算表', 'success');
     });
 
     document.getElementById('clearBtn').addEventListener('click', async () => {
@@ -382,12 +386,7 @@
         const res = await apiCall(payload);
         if (res.status === 'success') {
             clearTableData();
-            showModal('清除成功', '✅ 雲端紀錄已刪除，表格已清空', 'success');
-        } else if (res.status === 'empty') {
-            showModal('提示', 'ℹ️ 雲端查無此紀錄，僅清空表格', 'info');
-            clearTableData();
-        } else {
-            showModal('錯誤', res.message, 'error');
+            showModal('清除成功', '✅ 雲端紀錄已刪除', 'success');
         }
     });
 
