@@ -179,20 +179,20 @@
     });
 
     // --- 全螢幕控制邏輯 ---
-    const videoContainer = document.getElementById('videoContainer');
     const fullscreenBtn = document.getElementById('fullscreenBtn');
     const fsEnterIcon = document.getElementById('fs-enter-icon');
     const fsExitIcon = document.getElementById('fs-exit-icon');
+    const docElement = document.documentElement; // 改為取得整個網頁元素
 
     fullscreenBtn.addEventListener('click', () => {
         if (!document.fullscreenElement) {
-            // 進入全螢幕
-            if (videoContainer.requestFullscreen) {
-                videoContainer.requestFullscreen();
-            } else if (videoContainer.webkitRequestFullscreen) { /* Safari */
-                videoContainer.webkitRequestFullscreen();
-            } else if (videoContainer.msRequestFullscreen) { /* IE11 */
-                videoContainer.msRequestFullscreen();
+            // 進入整個網頁的全螢幕
+            if (docElement.requestFullscreen) {
+                docElement.requestFullscreen();
+            } else if (docElement.webkitRequestFullscreen) { /* Safari */
+                docElement.webkitRequestFullscreen();
+            } else if (docElement.msRequestFullscreen) { /* IE11 */
+                docElement.msRequestFullscreen();
             }
         } else {
             // 退出全螢幕
