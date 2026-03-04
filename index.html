@@ -1,12 +1,12 @@
 <!--
 ==========================================
-實驗紀錄系統 - 前端網頁 (簡單覆蓋版本)
-版本：v1.0 (最新版)
+實驗紀錄系統 - 前端網頁 (完整功能版)
+版本：v1.3 (搭配 GAS v1.3)
 功能：
-1. 實物投影機視訊畫面整合 (支援全螢幕切換)
-2. 動態生成四個實驗單元表格
+1. 實物投影機視訊整合 (支援全螢幕、左右互換)
+2. 動態生成四個實驗單元表格 (實驗一至四)
 3. 支援即時自動計算 V/I 比值
-4. 與 GAS 串接，達成同班級自動讀取與覆蓋儲存
+4. 與 GAS 串接，支援同班級讀取、覆蓋儲存、刪除清除
 5. 全面使用 Tailwind 自訂 Modal 提示視窗
 ==========================================
 -->
@@ -25,13 +25,16 @@
             -webkit-appearance: none;
             margin: 0;
         }
+        .modal-active {
+            overflow: hidden;
+        }
     </style>
 </head>
 <body class="bg-gray-100 font-sans h-screen overflow-hidden">
 
 <div id="mainContainer" class="flex h-full w-full flex-col md:flex-row transition-all duration-300">
     
-    <!-- 左側 2/3：實物投影機視訊區 -->
+    <!-- 視訊區 (預設左側 2/3) -->
     <div id="videoContainer" class="w-full md:w-2/3 bg-black relative flex flex-col items-center justify-center p-4 h-1/2 md:h-full">
         <!-- 攝影機選單懸浮於左上角 -->
         <div class="absolute top-4 left-4 z-10 bg-white/90 p-2 rounded-lg shadow flex items-center gap-2">
@@ -44,24 +47,22 @@
         </div>
         
         <!-- 全螢幕按鈕懸浮於右上角 -->
-        <button id="fullscreenBtn" class="absolute top-4 right-4 z-10 bg-white/90 p-2 rounded-lg shadow hover:bg-white transition-colors flex items-center justify-center cursor-pointer" title="切換全螢幕">
-            <!-- 進入全螢幕圖示 -->
+        <button id="fullscreenBtn" class="absolute top-4 right-4 z-10 bg-white/90 p-2 rounded-lg shadow hover:bg-white transition-colors flex items-center justify-center cursor-pointer" title="切換全網頁全螢幕">
             <svg id="fs-enter-icon" class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
-            <!-- 退出全螢幕圖示 (預設隱藏) -->
             <svg id="fs-exit-icon" class="w-5 h-5 text-gray-700 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 14h6m0 0v6m0-6l-7 7m17-11h-6m0 0V4m0 6l7-7M4 10h6m0 0V4m0 6l-7-7m17 11h-6m0 0v6m0-6l7 7"></path></svg>
         </button>
 
         <video id="video" class="w-full h-full object-contain border border-gray-800 rounded shadow-2xl bg-gray-900" autoplay playsinline></video>
     </div>
 
-    <!-- 右側 1/3：實驗控制與數據紀錄面板 -->
+    <!-- 數據面板 (預設右側 1/3) -->
     <div class="w-full md:w-1/3 bg-white flex flex-col shadow-[-5px_0_15px_rgba(0,0,0,0.1)] z-20 h-1/2 md:h-full">
         
         <!-- 面板頭部：年級/班級/實驗選擇 -->
         <div class="p-4 md:p-5 bg-blue-50 border-b border-blue-100">
             <h1 class="text-xl font-bold text-blue-900 mb-3 flex items-center">
                 <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path></svg>
-                實驗紀錄單 <span class="text-xs text-blue-600 font-normal ml-2 border border-blue-300 bg-blue-100 px-1.5 py-0.5 rounded shadow-sm">v1.0</span>
+                實驗紀錄單 <span class="text-xs text-blue-600 font-normal ml-2 border border-blue-300 bg-blue-100 px-1.5 py-0.5 rounded shadow-sm">v1.3</span>
             </h1>
             <div class="grid grid-cols-2 gap-3 mb-3">
                 <div class="flex items-center">
@@ -79,7 +80,7 @@
             </div>
             <div class="flex items-center">
                 <label class="text-sm font-bold text-gray-700 mr-2 w-10">單元</label>
-                <select id="expSelect" class="flex-1 border rounded p-1.5 outline-none focus:ring-2 focus:ring-blue-300 font-bold text-blue-800 text-sm md:text-base">
+                <select id="expSelect" class="flex-1 border rounded p-1.5 outline-none focus:ring-2 focus:ring-blue-300 font-bold text-blue-800 text-sm">
                     <option value="exp1">1. 實驗一：固定電阻 (測量V-I關係)</option>
                     <option value="exp2">2. 實驗二：電阻串聯</option>
                     <option value="exp3">3. 實驗三：電阻並聯</option>
@@ -88,23 +89,26 @@
             </div>
         </div>
 
-        <!-- 面板中間：動態產生的表格區 (可滾動) -->
+        <!-- 面板中間：動態表格區 -->
         <div id="table-container" class="flex-1 overflow-y-auto p-4 md:p-5 bg-gray-50">
-            <!-- 這裡會由 JS 自動載入實驗表格 -->
+            <!-- 由 JS 動態生成 -->
         </div>
 
-        <!-- 面板底部：操作按鈕區 -->
+        <!-- 面板底部：按鈕區 -->
         <div class="p-4 bg-white border-t flex flex-col gap-3">
             <button id="calcBtn" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2.5 rounded shadow transition-colors flex justify-center items-center">
                 <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
                 自動計算比值 (V/I)
             </button>
-            <div class="flex gap-3">
-                <button id="loadBtn" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 rounded shadow transition-colors text-sm md:text-base">
-                    提取上次紀錄
+            <div class="flex gap-2">
+                <button id="loadBtn" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 rounded shadow transition-colors text-xs sm:text-sm">
+                    提取紀錄
                 </button>
-                <button id="saveBtn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded shadow transition-colors text-sm md:text-base">
-                    儲存目前數據
+                <button id="clearBtn" class="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2.5 rounded shadow transition-colors text-xs sm:text-sm">
+                    清除紀錄
+                </button>
+                <button id="saveBtn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded shadow transition-colors text-xs sm:text-sm">
+                    儲存數據
                 </button>
             </div>
         </div>
@@ -112,13 +116,13 @@
     </div>
 </div>
 
-<!-- 彈出視窗 (Modal) -->
-<div id="customModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 hidden transition-opacity">
-    <div class="bg-white rounded-lg shadow-xl w-11/12 max-w-md transform transition-all p-6">
-        <h3 id="modalTitle" class="text-xl font-bold mb-3 text-gray-800">提示</h3>
-        <p id="modalMessage" class="text-gray-600 mb-6 whitespace-pre-line leading-relaxed"></p>
+<!-- 自訂彈出視窗 (Modal) -->
+<div id="customModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 hidden">
+    <div class="bg-white rounded-lg shadow-xl w-11/12 max-w-md p-6">
+        <h3 id="modalTitle" class="text-xl font-bold mb-3">提示</h3>
+        <p id="modalMessage" class="text-gray-600 mb-6 whitespace-pre-line"></p>
         <div class="flex justify-end">
-            <button id="modalCloseBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded shadow transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75">
+            <button id="modalCloseBtn" class="bg-blue-600 text-white font-bold py-2 px-6 rounded shadow hover:bg-blue-700 transition-colors">
                 確認
             </button>
         </div>
@@ -126,12 +130,15 @@
 </div>
 
 <script>
-    // ==========================================
-    // 已經為您設定好專屬的 Google Apps Script 網址
-    // ==========================================
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbzGj5KcJxD9iXeR5jiQEe_g9FhK5eYF3UFpyqPaQzxm5Fcns5-KdcOCGUYbbZw6AQ0g/exec'; 
 
-    // --- Modal 彈出視窗控制邏輯 ---
+    // --- 初始化 UI ---
+    const classSelect = document.getElementById('classSelect');
+    for (let i = 1; i <= 17; i++) {
+        let val = i < 10 ? '0' + i : i;
+        classSelect.innerHTML += `<option value="${val}">${val} 班</option>`;
+    }
+
     const customModal = document.getElementById('customModal');
     const modalTitle = document.getElementById('modalTitle');
     const modalMessage = document.getElementById('modalMessage');
@@ -140,170 +147,88 @@
     function showModal(title, message, type = 'info') {
         modalTitle.textContent = title;
         modalMessage.textContent = message;
-        
-        // 依據類型改變標題顏色
         modalTitle.className = 'text-xl font-bold mb-3';
         if (type === 'error') modalTitle.classList.add('text-red-600');
         else if (type === 'success') modalTitle.classList.add('text-green-600');
         else if (type === 'warning') modalTitle.classList.add('text-amber-600');
         else modalTitle.classList.add('text-blue-600');
-
         customModal.classList.remove('hidden');
     }
 
-    modalCloseBtn.addEventListener('click', () => {
-        customModal.classList.add('hidden');
-    });
+    modalCloseBtn.addEventListener('click', () => customModal.classList.add('hidden'));
 
-    // 初始化班級選項 (01 ~ 17)
-    const classSelect = document.getElementById('classSelect');
-    for (let i = 1; i <= 17; i++) {
-        let val = i < 10 ? '0' + i : i;
-        classSelect.innerHTML += `<option value="${val}">${val} 班</option>`;
-    }
-
-    // --- 左右版面互換邏輯 ---
+    // --- 左右版面互換 ---
     const swapLayoutBtn = document.getElementById('swapLayoutBtn');
     const mainContainer = document.getElementById('mainContainer');
     let isLayoutSwapped = false;
-
     swapLayoutBtn.addEventListener('click', () => {
         isLayoutSwapped = !isLayoutSwapped;
-        if (isLayoutSwapped) {
-            mainContainer.classList.remove('md:flex-row');
-            mainContainer.classList.add('md:flex-row-reverse');
-        } else {
-            mainContainer.classList.remove('md:flex-row-reverse');
-            mainContainer.classList.add('md:flex-row');
-        }
+        mainContainer.classList.toggle('md:flex-row', !isLayoutSwapped);
+        mainContainer.classList.toggle('md:flex-row-reverse', isLayoutSwapped);
     });
 
-    // --- 全螢幕控制邏輯 ---
+    // --- 全螢幕控制 ---
     const fullscreenBtn = document.getElementById('fullscreenBtn');
     const fsEnterIcon = document.getElementById('fs-enter-icon');
     const fsExitIcon = document.getElementById('fs-exit-icon');
-    const docElement = document.documentElement; // 改為取得整個網頁元素
-
     fullscreenBtn.addEventListener('click', () => {
+        const doc = document.documentElement;
         if (!document.fullscreenElement) {
-            // 進入整個網頁的全螢幕
-            if (docElement.requestFullscreen) {
-                docElement.requestFullscreen();
-            } else if (docElement.webkitRequestFullscreen) { /* Safari */
-                docElement.webkitRequestFullscreen();
-            } else if (docElement.msRequestFullscreen) { /* IE11 */
-                docElement.msRequestFullscreen();
-            }
+            if (doc.requestFullscreen) doc.requestFullscreen();
+            else if (doc.webkitRequestFullscreen) doc.webkitRequestFullscreen();
         } else {
-            // 退出全螢幕
-            if (document.exitFullscreen) {
-                document.exitFullscreen();
-            } else if (document.webkitExitFullscreen) { /* Safari */
-                document.webkitExitFullscreen();
-            } else if (document.msExitFullscreen) { /* IE11 */
-                document.msExitFullscreen();
-            }
+            if (document.exitFullscreen) document.exitFullscreen();
         }
     });
-
-    // 監聽全螢幕狀態改變以切換按鈕圖示
     document.addEventListener('fullscreenchange', () => {
-        if (document.fullscreenElement) {
-            fsEnterIcon.classList.add('hidden');
-            fsExitIcon.classList.remove('hidden');
-        } else {
-            fsEnterIcon.classList.remove('hidden');
-            fsExitIcon.classList.add('hidden');
-        }
+        const isFS = !!document.fullscreenElement;
+        fsEnterIcon.classList.toggle('hidden', isFS);
+        fsExitIcon.classList.toggle('hidden', !isFS);
     });
 
-    // --- 攝影機控制邏輯 ---
+    // --- 攝影機控制 ---
     const video = document.getElementById('video');
     const cameraSelect = document.getElementById('cameraSelect');
-
     async function initCamera() {
         try {
-            // 1. 先請求基本權限，喚起瀏覽器的權限詢問視窗
             let initialStream;
-            try {
-                initialStream = await navigator.mediaDevices.getUserMedia({ video: true });
-            } catch (err) {
-                // 如果是找不到設備，我們只顯示警告而非拋出錯誤，讓介面能繼續運作
-                if (err.name === 'NotFoundError' || err.message.includes('Requested device not found')) {
-                    console.warn('找不到攝影機設備。這可能是因為沒有連接鏡頭，或在預覽環境中無法存取。');
-                } else {
-                    console.warn('無法預先取得攝影機權限:', err);
-                }
-            }
-            
-            // 2. 取得權限後，才能正確讀取所有設備的標籤與 ID
+            try { initialStream = await navigator.mediaDevices.getUserMedia({ video: true }); } catch (e) {}
             const devices = await navigator.mediaDevices.enumerateDevices();
             const videoDevices = devices.filter(d => d.kind === 'videoinput');
-            
             cameraSelect.innerHTML = '';
             if (videoDevices.length === 0) {
                 cameraSelect.innerHTML = '<option value="">找不到攝影機</option>';
-                return; // 找不到設備就直接返回，不執行 startStream
             } else {
                 videoDevices.forEach((device, index) => {
                     const opt = document.createElement('option');
                     opt.value = device.deviceId;
-                    opt.text = device.label || `實物投影機 / 鏡頭 ${index + 1}`;
+                    opt.text = device.label || `鏡頭 ${index + 1}`;
                     cameraSelect.appendChild(opt);
                 });
             }
-
-            // 3. 停止初始串流
-            if (initialStream) {
-                initialStream.getTracks().forEach(t => t.stop());
-            }
-
-            // 4. 正式啟動選定的設備
+            if (initialStream) initialStream.getTracks().forEach(t => t.stop());
             await startStream();
         } catch (err) {
-            console.error('讀取攝影機設備清單時發生錯誤:', err);
-            cameraSelect.innerHTML = '<option value="">無法初始化設備</option>';
+            cameraSelect.innerHTML = '<option value="">初始化攝影機失敗</option>';
         }
     }
 
     async function startStream() {
-        if (!cameraSelect.value && cameraSelect.options[0]?.value === "") return; // 若無設備則跳出
-
+        if (!cameraSelect.value) return;
         if (window.stream) window.stream.getTracks().forEach(t => t.stop());
-        
-        let constraints = { 
-            video: { 
-                width: { ideal: 1920 },
-                height: { ideal: 1080 }
-            } 
-        };
-
-        if (cameraSelect.value) {
-            constraints.video.deviceId = { exact: cameraSelect.value };
-        }
-
         try {
-            window.stream = await navigator.mediaDevices.getUserMedia(constraints);
+            window.stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { deviceId: { exact: cameraSelect.value }, width: { ideal: 1920 }, height: { ideal: 1080 } } 
+            });
             video.srcObject = window.stream;
-        } catch (err) {
-            console.warn('無法以指定高畫質/設備啟動，嘗試降級使用預設鏡頭:', err.message);
-            try {
-                // Fallback: 最基本的預設鏡頭，不指定 ID 與解析度
-                window.stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                video.srcObject = window.stream;
-            } catch (fallbackErr) {
-                if (fallbackErr.name === 'NotFoundError' || fallbackErr.message.includes('Requested device not found')) {
-                    console.warn('確認找不到可用的攝影機。');
-                } else {
-                    console.error('無法啟動任何攝影機:', fallbackErr);
-                }
-            }
+        } catch (e) {
+            window.stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = window.stream;
         }
     }
-
     cameraSelect.addEventListener('change', startStream);
 
-    // --- 表格動態渲染邏輯 ---
+    // --- 表格渲染 ---
     const tableContainer = document.getElementById('table-container');
     const expSelect = document.getElementById('expSelect');
     const gradeSelect = document.getElementById('gradeSelect');
@@ -311,260 +236,137 @@
     function renderTable() {
         const val = expSelect.value;
         let html = '';
-        
-        // 實驗一：固定電阻
         if (val === 'exp1') {
             html = `
                 <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
                     <h3 class="font-bold text-lg mb-2 text-blue-800 border-b-2 border-blue-100 pb-2">1. 實驗一：固定電阻 (1000Ω棕黑紅金)</h3>
-                    <p class="text-sm text-gray-600 mb-3">測量電壓與電流關係。</p>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-center border-collapse text-sm mb-4 min-w-[300px]">
-                            <thead>
-                                <tr class="bg-blue-50 text-blue-900"><th class="border border-blue-200 p-2">電壓(V)</th><th class="border border-blue-200 p-2">電流(mA)</th><th class="border border-blue-200 p-2">比值(電壓/電流)</th></tr>
-                            </thead>
-                            <tbody>
-                                <tr><td class="border p-2 bg-gray-50"><input type="number" class="w-full text-center bg-transparent input-v outline-none" value="1.5" readonly></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 border-b border-yellow-300 outline-none p-1 input-i"></td><td class="border p-2 font-bold text-blue-600 result-r bg-gray-50">-</td></tr>
-                                <tr><td class="border p-2 bg-gray-50"><input type="number" class="w-full text-center bg-transparent input-v outline-none" value="3.0" readonly></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 border-b border-yellow-300 outline-none p-1 input-i"></td><td class="border p-2 font-bold text-blue-600 result-r bg-gray-50">-</td></tr>
-                                <tr><td class="border p-2 bg-gray-50"><input type="number" class="w-full text-center bg-transparent input-v outline-none" value="4.5" readonly></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 border-b border-yellow-300 outline-none p-1 input-i"></td><td class="border p-2 font-bold text-blue-600 result-r bg-gray-50">-</td></tr>
-                            </tbody>
-                        </table>
+                    <table class="w-full text-center border-collapse text-sm mb-4">
+                        <thead><tr class="bg-blue-50 text-blue-900"><th class="border p-2">電壓(V)</th><th class="border p-2">電流(mA)</th><th class="border p-2">比值(V/I)</th></tr></thead>
+                        <tbody>
+                            <tr><td class="border p-2 bg-gray-50"><input type="number" class="w-full text-center bg-transparent input-v" value="1.5" readonly></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 p-1 input-i"></td><td class="border p-2 font-bold text-blue-600 result-r bg-gray-50">-</td></tr>
+                            <tr><td class="border p-2 bg-gray-50"><input type="number" class="w-full text-center bg-transparent input-v" value="3.0" readonly></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 p-1 input-i"></td><td class="border p-2 font-bold text-blue-600 result-r bg-gray-50">-</td></tr>
+                            <tr><td class="border p-2 bg-gray-50"><input type="number" class="w-full text-center bg-transparent input-v" value="4.5" readonly></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 p-1 input-i"></td><td class="border p-2 font-bold text-blue-600 result-r bg-gray-50">-</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="text-sm flex flex-col gap-2 text-gray-700">
+                        <div>a. 電壓除以電流是否是一個定值？ <input type="text" class="border-b border-gray-400 w-16 text-center"> 此值代表的意義是？<input type="text" class="border-b border-gray-400 w-24"></div>
+                        <div>b. 電壓變 <input type="text" class="border-b border-gray-400 w-10 text-center"> ，電流變 <input type="text" class="border-b border-gray-400 w-10 text-center"> ，成 <input type="text" class="border-b border-gray-400 w-10 text-center"> 比</div>
                     </div>
-                    <div class="text-sm flex flex-col gap-3 text-gray-700 mt-2">
-                        <div class="flex items-center flex-wrap gap-1">a. 電壓除以電流是否是一個定值？ <input type="text" class="border-b border-gray-400 outline-none w-16 text-center"> 此值代表的意義是？<input type="text" class="border-b border-gray-400 outline-none flex-1 min-w-[100px]"></div>
-                        <div class="flex items-center flex-wrap gap-1">b. 電壓變 <input type="text" class="border-b border-gray-400 outline-none w-12 text-center"> ，電流變 <input type="text" class="border-b border-gray-400 outline-none w-12 text-center"> ，成 <input type="text" class="border-b border-gray-400 outline-none w-16 text-center"> 比</div>
-                        <div>c. 將實驗結果畫成 VI 圖 <span class="text-xs text-gray-500">(請學生繪製於紙本)</span></div>
-                    </div>
-                </div>
-            `;
-        } 
-        // 實驗二：電阻串聯
-        else if (val === 'exp2') {
+                </div>`;
+        } else if (val === 'exp2' || val === 'exp3') {
+            const title = val === 'exp2' ? '實驗二：電阻串聯' : '實驗三：電阻並聯';
             html = `
                 <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                    <h3 class="font-bold text-lg mb-3 text-blue-800 border-b-2 border-blue-100 pb-2">2. 實驗二：電阻串聯 (固定 3V)</h3>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-center border-collapse text-sm mb-4 min-w-[400px]">
-                            <thead>
-                                <tr class="bg-blue-50 text-blue-900"><th class="border border-blue-200 p-2">電阻</th><th class="border border-blue-200 p-2">總阻值(Ω)</th><th class="border border-blue-200 p-2">電壓(V)</th><th class="border border-blue-200 p-2">電流(mA)</th><th class="border border-blue-200 p-2">比值(V/I)</th></tr>
-                            </thead>
-                            <tbody>
-                                <tr><td class="border p-2 whitespace-nowrap text-xs text-left">1個:<input type="text" class="w-8 border-b border-gray-400 outline-none bg-transparent ml-1"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1 input-v"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1 input-i"></td><td class="border p-2 font-bold text-blue-600 result-r bg-gray-50">-</td></tr>
-                                <tr><td class="border p-2 whitespace-nowrap text-xs text-left">2個:<input type="text" class="w-6 border-b border-gray-400 outline-none bg-transparent mx-1">+<input type="text" class="w-6 border-b border-gray-400 outline-none bg-transparent mx-1"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1 input-v"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1 input-i"></td><td class="border p-2 font-bold text-blue-600 result-r bg-gray-50">-</td></tr>
-                                <tr><td class="border p-2 whitespace-nowrap text-xs text-left">3個:<input type="text" class="w-4 border-b border-gray-400 outline-none bg-transparent mx-0.5">+<input type="text" class="w-4 border-b border-gray-400 outline-none bg-transparent mx-0.5">+<input type="text" class="w-4 border-b border-gray-400 outline-none bg-transparent mx-0.5"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1 input-v"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1 input-i"></td><td class="border p-2 font-bold text-blue-600 result-r bg-gray-50">-</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="text-sm flex items-center text-gray-700 mt-2">
-                        <span class="font-bold">結論：</span><input type="text" class="flex-1 border-b border-gray-400 outline-none ml-2">
-                    </div>
-                </div>
-            `;
-        } 
-        // 實驗三：電阻並聯
-        else if (val === 'exp3') {
-            html = `
-                <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-4">
-                    <h3 class="font-bold text-lg mb-3 text-blue-800 border-b-2 border-blue-100 pb-2">3. 實驗三：電阻並聯 (固定 3V)</h3>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-center border-collapse text-xs mb-4 min-w-[400px]">
-                            <thead>
-                                <tr class="bg-blue-50 text-blue-900"><th class="border border-blue-200 p-1">電阻</th><th class="border border-blue-200 p-1">總阻值(Ω)</th><th class="border border-blue-200 p-1">電壓(V)</th><th class="border border-blue-200 p-1">總電流(mA)</th><th class="border border-blue-200 p-1">比值(V/I)</th></tr>
-                            </thead>
-                            <tbody>
-                                <tr><td class="border p-1 whitespace-nowrap text-left">1個:<input type="text" class="w-6 border-b border-gray-400 outline-none bg-transparent ml-1"></td><td class="border p-1"><input type="number" class="w-full text-center bg-yellow-50 outline-none"></td><td class="border p-1"><input type="number" class="w-full text-center bg-yellow-50 outline-none input-v"></td><td class="border p-1"><input type="number" class="w-full text-center bg-yellow-50 outline-none input-i"></td><td class="border p-1 font-bold text-blue-600 result-r bg-gray-50">-</td></tr>
-                                <tr><td class="border p-1 whitespace-nowrap text-left">2個:<input type="text" class="w-4 border-b border-gray-400 outline-none bg-transparent mx-0.5">+<input type="text" class="w-4 border-b border-gray-400 outline-none bg-transparent mx-0.5"></td><td class="border p-1"><input type="number" class="w-full text-center bg-yellow-50 outline-none"></td><td class="border p-1"><input type="number" class="w-full text-center bg-yellow-50 outline-none input-v"></td><td class="border p-1"><input type="number" class="w-full text-center bg-yellow-50 outline-none input-i"></td><td class="border p-1 font-bold text-blue-600 result-r bg-gray-50">-</td></tr>
-                                <tr><td class="border p-1 whitespace-nowrap text-left">3個:<input type="text" class="w-3 border-b border-gray-400 outline-none bg-transparent mx-0.5">+<input type="text" class="w-3 border-b border-gray-400 outline-none bg-transparent mx-0.5">+<input type="text" class="w-3 border-b border-gray-400 outline-none bg-transparent mx-0.5"></td><td class="border p-1"><input type="number" class="w-full text-center bg-yellow-50 outline-none"></td><td class="border p-1"><input type="number" class="w-full text-center bg-yellow-50 outline-none input-v"></td><td class="border p-1"><input type="number" class="w-full text-center bg-yellow-50 outline-none input-i"></td><td class="border p-1 font-bold text-blue-600 result-r bg-gray-50">-</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="text-sm flex items-center text-gray-700 mt-2">
-                        <span class="font-bold">結論：</span><input type="text" class="flex-1 border-b border-gray-400 outline-none ml-2">
-                    </div>
-                </div>
-            `;
-        }
-        // 實驗四：並聯兩個電阻
-        else if (val === 'exp4') {
+                    <h3 class="font-bold text-lg mb-3 text-blue-800 border-b-2 border-blue-100 pb-2">${title}</h3>
+                    <table class="w-full text-center border-collapse text-xs mb-4">
+                        <thead><tr class="bg-blue-50 text-blue-900"><th class="border p-1">電阻</th><th class="border p-1">總阻值(Ω)</th><th class="border p-1">電壓(V)</th><th class="border p-1">電流(mA)</th><th class="border p-1">比值(V/I)</th></tr></thead>
+                        <tbody>
+                            <tr><td class="border p-1 text-left">1個:<input type="text" class="w-8 border-b"></td><td class="border p-1"><input type="number" class="w-full text-center"></td><td class="border p-1"><input type="number" class="w-full text-center input-v"></td><td class="border p-1"><input type="number" class="w-full text-center input-i"></td><td class="border p-1 font-bold result-r">-</td></tr>
+                            <tr><td class="border p-1 text-left">2個:<input type="text" class="w-8 border-b"></td><td class="border p-1"><input type="number" class="w-full text-center"></td><td class="border p-1"><input type="number" class="w-full text-center input-v"></td><td class="border p-1"><input type="number" class="w-full text-center input-i"></td><td class="border p-1 font-bold result-r">-</td></tr>
+                            <tr><td class="border p-1 text-left">3個:<input type="text" class="w-8 border-b"></td><td class="border p-1"><input type="number" class="w-full text-center"></td><td class="border p-1"><input type="number" class="w-full text-center input-v"></td><td class="border p-1"><input type="number" class="w-full text-center input-i"></td><td class="border p-1 font-bold result-r">-</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="text-sm">結論：<input type="text" class="w-full border-b border-gray-400 mt-1"></div>
+                </div>`;
+        } else if (val === 'exp4') {
             html = `
                 <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                    <h3 class="font-bold text-md mb-3 text-green-700 border-b-2 border-green-100 pb-2">4. 實驗四：並聯兩個電阻，觀察每一個迴路的電壓及電流</h3>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-center border-collapse text-sm mb-4 min-w-[350px]">
-                            <thead>
-                                <tr class="bg-green-50 text-green-900"><th class="border border-green-200 p-2">電阻</th><th class="border border-green-200 p-2">電阻(Ω)</th><th class="border border-green-200 p-2">電壓(V)</th><th class="border border-green-200 p-2">電流(mA)</th></tr>
-                            </thead>
-                            <tbody>
-                                <tr><td class="border p-2 bg-gray-50">迴路 1</td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1"></td></tr>
-                                <tr><td class="border p-2 bg-gray-50">迴路 2</td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1"></td></tr>
-                                <tr><td class="border p-2 font-bold bg-gray-50">總</td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1"></td><td class="border p-2"><input type="number" class="w-full text-center bg-yellow-50 outline-none p-1"></td></tr>
-                            </tbody>
-                        </table>
+                    <h3 class="font-bold text-md mb-3 text-green-700 border-b-2 border-green-100 pb-2">4. 實驗四：並聯兩個電阻，觀察迴路</h3>
+                    <table class="w-full text-center border-collapse text-sm mb-4">
+                        <thead><tr class="bg-green-50 text-green-900"><th class="border p-2">電阻</th><th class="border p-2">電阻(Ω)</th><th class="border p-2">電壓(V)</th><th class="border p-2">電流(mA)</th></tr></thead>
+                        <tbody>
+                            <tr><td class="border p-2">迴路 1</td><td class="border p-2"><input type="number" class="w-full"></td><td class="border p-2"><input type="number" class="w-full"></td><td class="border p-2"><input type="number" class="w-full"></td></tr>
+                            <tr><td class="border p-2">迴路 2</td><td class="border p-2"><input type="number" class="w-full"></td><td class="border p-2"><input type="number" class="w-full"></td><td class="border p-2"><input type="number" class="w-full"></td></tr>
+                            <tr><td class="border p-2 font-bold">總</td><td class="border p-2"><input type="number" class="w-full"></td><td class="border p-2"><input type="number" class="w-full"></td><td class="border p-2"><input type="number" class="w-full"></td></tr>
+                        </tbody>
+                    </table>
+                    <div class="text-sm flex flex-col gap-2">
+                        <div>電阻比: <input type="text" class="border-b w-10 text-center">:<input type="text" class="border-b w-10 text-center"></div>
+                        <div>電流比: <input type="text" class="border-b w-10 text-center">:<input type="text" class="border-b w-10 text-center"></div>
+                        <div>結論：<input type="text" class="w-full border-b"></div>
                     </div>
-                    <div class="text-sm flex flex-col gap-2 text-gray-700 mt-2">
-                        <div class="flex items-center flex-wrap">A: 電阻比: 迴路1:迴路2 = <input type="text" class="border-b border-gray-400 w-12 text-center outline-none mx-1">:<input type="text" class="border-b border-gray-400 w-12 text-center outline-none mx-1"></div>
-                        <div class="flex items-center flex-wrap">B: 電流比: 迴路1:迴路2 = <input type="text" class="border-b border-gray-400 w-12 text-center outline-none mx-1">:<input type="text" class="border-b border-gray-400 w-12 text-center outline-none mx-1"></div>
-                        <div class="flex items-center mt-1"><span class="font-bold">C: 結論：</span><input type="text" class="flex-1 border-b border-gray-400 outline-none ml-2 min-w-[100px]"></div>
-                    </div>
-                </div>
-            `;
+                </div>`;
         }
-        
         tableContainer.innerHTML = html;
     }
 
-    // 監聽單元選單改變，重新渲染表格，並自動載入該單元數據
-    expSelect.addEventListener('change', () => {
-        renderTable();
-        executeLoad(true);
-    });
-
-    // 班級、年級改變時自動載入
-    gradeSelect.addEventListener('change', () => executeLoad(true));
-    classSelect.addEventListener('change', () => executeLoad(true));
-
-    // --- 計算邏輯 ---
-    function calculateRatio() {
-        const rows = document.querySelectorAll('#table-container tr');
-        rows.forEach(row => {
-            const vEl = row.querySelector('.input-v');
-            const iEl = row.querySelector('.input-i');
-            const rEl = row.querySelector('.result-r');
-
-            if (vEl && iEl && rEl) {
-                const v = parseFloat(vEl.value);
-                const i = parseFloat(iEl.value);
-                // 計算 V/I 比值
-                if (!isNaN(v) && !isNaN(i) && i !== 0) {
-                    rEl.textContent = (v / i).toFixed(2);
-                } else {
-                    rEl.textContent = '-';
-                }
-            }
-        });
+    // --- 數據通訊 ---
+    async function apiCall(payload) {
+        try {
+            const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) });
+            return await res.json();
+        } catch (e) {
+            console.error(e);
+            return { status: 'error', message: '連線異常，請確認 GAS 網址與部署權限' };
+        }
     }
 
-    // 綁定計算按鈕與輸入框即時計算
-    document.getElementById('calcBtn').addEventListener('click', calculateRatio);
-    tableContainer.addEventListener('input', (e) => {
-        if (e.target.classList.contains('input-v') || e.target.classList.contains('input-i')) {
-            calculateRatio();
-        }
-    });
-
-    // --- 儲存與讀取 (GAS API 通訊) ---
     function getTableData() {
-        // 依序抓取表格內所有的 input 值 (包含文字填空與數字)
-        const inputs = document.querySelectorAll('#table-container input');
-        return Array.from(inputs).map(input => input.value);
+        return Array.from(tableContainer.querySelectorAll('input')).map(input => input.value);
     }
 
     function setTableData(dataArray) {
-        if (!dataArray || !Array.isArray(dataArray)) return;
-        const inputs = document.querySelectorAll('#table-container input');
-        inputs.forEach((input, index) => {
-            if (dataArray[index] !== undefined && !input.readOnly) {
-                input.value = dataArray[index];
-            }
-        });
-        calculateRatio(); // 填完資料自動計算一次
-    }
-
-    function clearTableData() {
-        const inputs = document.querySelectorAll('#table-container input');
-        inputs.forEach(input => {
-            if (!input.readOnly) input.value = '';
-        });
+        const inputs = tableContainer.querySelectorAll('input');
+        inputs.forEach((input, i) => { if (dataArray[i] !== undefined && !input.readOnly) input.value = dataArray[i]; });
         calculateRatio();
     }
 
-    document.getElementById('saveBtn').addEventListener('click', async () => {
-        if (!GAS_URL || GAS_URL === '') {
-            showModal('警告', '⚠️ 無效的 GAS 網址！', 'warning');
-            return;
-        }
-
-        const btn = document.getElementById('saveBtn');
-        btn.textContent = '儲存中...';
-        btn.disabled = true;
-
-        const payload = {
-            action: 'save',
-            grade: document.getElementById('gradeSelect').value,
-            className: document.getElementById('classSelect').value,
-            expType: document.getElementById('expSelect').value,
-            data: getTableData()
-        };
-
-        try {
-            const res = await fetch(GAS_URL, {
-                method: 'POST',
-                // 使用 text/plain 避免 CORS 預檢請求(Preflight) 失敗
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify(payload)
-            });
-            const result = await res.json();
-            if (result.status === 'success') {
-                showModal('儲存成功', '✅ 資料已寫入或覆蓋更新至 Google 試算表。', 'success');
-            } else {
-                showModal('儲存失敗', '❌ ' + result.message, 'error');
-            }
-        } catch (e) {
-            showModal('連線異常', '❌ 請確認 GAS 網址與權限設定。', 'error');
-            console.error(e);
-        }
-        
-        btn.textContent = '儲存目前數據';
-        btn.disabled = false;
-    });
-
-    async function executeLoad(isSilent = false) {
-        if (!GAS_URL || GAS_URL === '') return;
-
-        const btn = document.getElementById('loadBtn');
-        btn.textContent = '讀取中...';
-        btn.disabled = true;
-
-        const payload = {
-            action: 'load',
-            grade: document.getElementById('gradeSelect').value,
-            className: document.getElementById('classSelect').value,
-            expType: document.getElementById('expSelect').value
-        };
-
-        try {
-            const res = await fetch(GAS_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify(payload)
-            });
-            const result = await res.json();
-            
-            if (result.status === 'success') {
-                setTableData(result.data);
-                if (!isSilent) showModal('讀取成功', '✅ 紀錄提取成功！', 'success');
-            } else if (result.status === 'empty') {
-                clearTableData();
-                if (!isSilent) showModal('提示', 'ℹ️ 此班級尚未有該實驗的儲存紀錄。', 'info');
-            } else {
-                if (!isSilent) showModal('讀取失敗', '❌ ' + result.message, 'error');
-            }
-        } catch (e) {
-            if (!isSilent) showModal('連線異常', '❌ 請確認 GAS 網址與權限設定。', 'error');
-            console.error(e);
-        }
-
-        btn.textContent = '提取上次紀錄';
-        btn.disabled = false;
+    function clearTableData() {
+        tableContainer.querySelectorAll('input').forEach(input => { if (!input.readOnly) input.value = ''; });
+        tableContainer.querySelectorAll('.result-r').forEach(el => el.textContent = '-');
     }
 
-    document.getElementById('loadBtn').addEventListener('click', () => executeLoad(false));
+    async function executeLoad(isSilent = false) {
+        const payload = { action: 'load', grade: gradeSelect.value, className: classSelect.value, expType: expSelect.value };
+        const res = await apiCall(payload);
+        if (res.status === 'success') {
+            setTableData(res.data);
+            if (!isSilent) showModal('讀取成功', '✅ 資料已成功載入', 'success');
+        } else {
+            clearTableData();
+            if (!isSilent && res.status === 'empty') showModal('提示', 'ℹ️ 無存檔紀錄', 'info');
+            else if (!isSilent) showModal('錯誤', res.message, 'error');
+        }
+    }
 
-    // 初始化啟動
+    document.getElementById('saveBtn').addEventListener('click', async () => {
+        const payload = { action: 'save', grade: gradeSelect.value, className: classSelect.value, expType: expSelect.value, data: getTableData() };
+        const res = await apiCall(payload);
+        if (res.status === 'success') showModal('儲存成功', '✅ 資料已儲存並同步至 Google 試算表', 'success');
+        else showModal('錯誤', res.message, 'error');
+    });
+
+    document.getElementById('clearBtn').addEventListener('click', async () => {
+        const payload = { action: 'clear', grade: gradeSelect.value, className: classSelect.value, expType: expSelect.value };
+        const res = await apiCall(payload);
+        if (res.status === 'success') {
+            clearTableData();
+            showModal('清除成功', '✅ 雲端紀錄已刪除，表格已清空', 'success');
+        } else if (res.status === 'empty') {
+            showModal('提示', 'ℹ️ 雲端查無此紀錄，僅清空表格', 'info');
+            clearTableData();
+        } else {
+            showModal('錯誤', res.message, 'error');
+        }
+    });
+
+    function calculateRatio() {
+        document.querySelectorAll('#table-container tr').forEach(row => {
+            const v = parseFloat(row.querySelector('.input-v')?.value);
+            const i = parseFloat(row.querySelector('.input-i')?.value);
+            const r = row.querySelector('.result-r');
+            if (r) r.textContent = (v && i) ? (v / i).toFixed(2) : '-';
+        });
+    }
+
+    document.getElementById('calcBtn').addEventListener('click', calculateRatio);
+    document.getElementById('loadBtn').addEventListener('click', () => executeLoad(false));
+    expSelect.addEventListener('change', () => { renderTable(); executeLoad(true); });
+    gradeSelect.addEventListener('change', () => executeLoad(true));
+    classSelect.addEventListener('change', () => executeLoad(true));
+
     initCamera();
     renderTable();
-
-    // 第一次啟動自動讀取一次數據
     setTimeout(() => executeLoad(true), 500);
 
 </script>
