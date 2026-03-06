@@ -1,12 +1,13 @@
 <!--
 ==========================================
 實驗紀錄系統 - 前端網頁 (旗艦功能版)
-版本：v2.12 (小老師與加扣分全面採用本地暫存+批次上傳)
+版本：v2.13 (動態班級選單、批次儲存加扣分、4K畫質)
 功能：
 1. 實物投影機視訊 (支援全螢幕、左右互換、收納功能，強制4K畫質)
 2. UI 彈性控制：字體大小、拖曳分隔線、首欄寬度調整
-3. 實驗表格精確對齊需求 (實際電壓、1K預設值、填空題)
-4. 小老師與加扣分「先暫存網頁」，顯示紅字未儲存提示，稍後點擊一次上傳
+3. [新增] 網頁載入時動態向雲端索取 A 欄班級資料，自動產生選單
+4. 實驗表格精確對齊需求 (實際電壓、1K預設值、填空題)
+5. 小老師與加扣分「先暫存網頁」，顯示紅字未儲存提示，稍後點擊一次上傳
 ==========================================
 -->
 <!DOCTYPE html>
@@ -14,7 +15,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>電子電路實驗紀錄系統 v2.12</title>
+    <title>電子電路實驗紀錄系統 v2.13</title>
     <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -107,12 +108,13 @@
         
         <div class="p-4 bg-blue-50 border-b border-blue-100 shrink-0">
             <div class="flex items-center justify-between mb-3">
-                <h1 class="text-xl font-bold text-blue-900">實驗紀錄單 <span class="text-xs font-normal text-blue-600 bg-white px-1 border rounded ml-1">v2.12</span></h1>
+                <h1 class="text-xl font-bold text-blue-900">實驗紀錄單 <span class="text-xs font-normal text-blue-600 bg-white px-1 border rounded ml-1">v2.13</span></h1>
             </div>
 
+            <!-- 動態班級下拉選單 -->
             <div class="grid grid-cols-2 gap-2 mb-3">
-                <select id="gradeSelect" class="border rounded p-1.5 text-sm outline-none"><option value="7">七年級</option><option value="8" selected>八年級</option><option value="9">九年級</option></select>
-                <select id="classSelect" class="border rounded p-1.5 text-sm outline-none"></select>
+                <select id="gradeSelect" class="border rounded p-1.5 text-sm outline-none"><option value="">讀取中...</option></select>
+                <select id="classSelect" class="border rounded p-1.5 text-sm outline-none"><option value="">讀取中...</option></select>
             </div>
             
             <select id="expSelect" class="w-full border rounded p-1.5 font-bold text-blue-800 text-sm mb-2">
@@ -168,7 +170,9 @@
                         <span id="studentCount" class="text-xs font-mono bg-gray-200 px-2 py-0.5 rounded text-gray-600">--</span>
                     </div>
                 </div>
-                <div id="student-list" class="divide-y divide-gray-100 max-h-[400px] overflow-y-auto no-scrollbar"></div>
+                <div id="student-list" class="divide-y divide-gray-100 max-h-[400px] overflow-y-auto no-scrollbar">
+                    <div class="p-8 text-center text-gray-400 italic text-sm">正在載入班級資料...</div>
+                </div>
             </div>
         </div>
 
@@ -195,12 +199,6 @@
     // ⚠️ 替換成您最新的 GAS 網址
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbzGj5KcJxD9iXeR5jiQEe_g9FhK5eYF3UFpyqPaQzxm5Fcns5-KdcOCGUYbbZw6AQ0g/exec'; 
 
-    const classSelect = document.getElementById('classSelect');
-    for (let i = 1; i <= 17; i++) {
-        let val = i < 10 ? '0' + i : i;
-        classSelect.innerHTML += `<option value="${val}">${val} 班</option>`;
-    }
-
     const mainContainer = document.getElementById('mainContainer');
     const sidebar = document.getElementById('sidebar');
     const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
@@ -209,6 +207,79 @@
     
     let isSidebarOpen = true;
     let currentSidebarWidth = 450; 
+
+    // --- 動態載入班級邏輯 ---
+    let availableClassesObj = {}; // 存放結構 { '7': ['01', '02'], '8': ['01', '02', '03'] }
+
+    async function initClassDropdowns() {
+        const gradeSelect = document.getElementById('gradeSelect');
+        const classSelect = document.getElementById('classSelect');
+        
+        try {
+            const r = await apiCall({ action: 'getAvailableClasses' });
+            if (r.status === 'success') {
+                availableClassesObj = {};
+                r.data.forEach(cls => {
+                    const strCls = String(cls).trim();
+                    if (strCls.length >= 3) {
+                        const g = strCls.substring(0, 1);
+                        const c = strCls.substring(1);
+                        if (!availableClassesObj[g]) availableClassesObj[g] = [];
+                        if (!availableClassesObj[g].includes(c)) availableClassesObj[g].push(c);
+                    }
+                });
+
+                gradeSelect.innerHTML = '';
+                const grades = Object.keys(availableClassesObj).sort();
+                
+                if (grades.length === 0) {
+                    gradeSelect.innerHTML = '<option value="">無資料</option>';
+                    classSelect.innerHTML = '<option value="">無資料</option>';
+                    return;
+                }
+
+                grades.forEach(g => {
+                    const opt = document.createElement('option');
+                    opt.value = g;
+                    const gradeNames = {'7':'七年級', '8':'八年級', '9':'九年級'};
+                    opt.textContent = gradeNames[g] || `${g}年級`;
+                    gradeSelect.appendChild(opt);
+                });
+
+                // 預設選中八年級 (如果有)，否則選第一個
+                if (grades.includes('8')) gradeSelect.value = '8';
+                else gradeSelect.value = grades[0];
+                
+                updateClassDropdown();
+                
+                // 觸發載入事件
+                renderTable();
+                loadStudents();
+            } else {
+                gradeSelect.innerHTML = '<option value="">載入失敗</option>';
+                classSelect.innerHTML = '<option value="">載入失敗</option>';
+            }
+        } catch (e) {
+            gradeSelect.innerHTML = '<option value="">連線錯誤</option>';
+            classSelect.innerHTML = '<option value="">連線錯誤</option>';
+        }
+    }
+
+    function updateClassDropdown() {
+        const g = document.getElementById('gradeSelect').value;
+        const classSelect = document.getElementById('classSelect');
+        classSelect.innerHTML = '';
+        if (availableClassesObj[g]) {
+            // 數字排序，確保班級順序正確
+            availableClassesObj[g].sort((a, b) => parseInt(a) - parseInt(b)).forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c;
+                opt.textContent = `${c} 班`;
+                classSelect.appendChild(opt);
+            });
+        }
+    }
+
 
     // --- 拖曳調整寬度邏輯 ---
     let isResizing = false;
@@ -479,7 +550,17 @@
 
         const list = document.getElementById('student-list');
         list.innerHTML = '<div class="p-8 text-center text-gray-400 text-sm">載入名單中...</div>';
-        const r = await apiCall({ action: 'getStudents', grade: document.getElementById('gradeSelect').value, className: document.getElementById('classSelect').value });
+        
+        const g = document.getElementById('gradeSelect').value;
+        const c = document.getElementById('classSelect').value;
+        
+        if (!g || !c) {
+            list.innerHTML = '<div class="p-8 text-center text-gray-400 italic">無名單資料</div>';
+            document.getElementById('studentCount').textContent = '--';
+            return;
+        }
+
+        const r = await apiCall({ action: 'getStudents', grade: g, className: c });
         if (r.status === 'success' && r.data.length > 0) {
             document.getElementById('studentCount').textContent = r.data.length + '人';
             list.innerHTML = '';
@@ -553,9 +634,20 @@
     });
 
     document.getElementById('expSelect').addEventListener('change', renderTable);
-    const updateAll = () => { renderTable(); loadStudents(); closeGrading(); };
-    document.getElementById('gradeSelect').addEventListener('change', updateAll);
-    document.getElementById('classSelect').addEventListener('change', updateAll);
+    
+    // --- 聯動下拉選單更新 ---
+    document.getElementById('gradeSelect').addEventListener('change', () => { 
+        updateClassDropdown();
+        renderTable(); 
+        loadStudents(); 
+        closeGrading(); 
+    });
+    
+    document.getElementById('classSelect').addEventListener('change', () => { 
+        renderTable(); 
+        loadStudents(); 
+        closeGrading(); 
+    });
     
     document.getElementById('swapLayoutBtn').addEventListener('click', () => { 
         mainContainer.classList.toggle('md:flex-row'); mainContainer.classList.toggle('md:flex-row-reverse'); 
@@ -568,7 +660,11 @@
         }
     });
 
-    window.onload = () => { initCamera(); renderTable(); loadStudents(); updateLayout(); };
+    window.onload = async () => { 
+        initCamera(); 
+        updateLayout();
+        await initClassDropdowns(); // 啟動時動態去後端撈取 A 欄有的班級資料
+    };
 </script>
 </body>
 </html>
