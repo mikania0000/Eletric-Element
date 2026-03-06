@@ -1,13 +1,13 @@
 <!--
 ==========================================
 實驗紀錄系統 - 前端網頁 (旗艦功能版)
-版本：v2.7 (完美對接 D 欄總分累加機制、4K畫質、全螢幕修復、保留預設值)
+版本：v2.8 (修復小數點無法計算問題、智慧電壓防呆)
 功能：
 1. 實物投影機視訊 (支援全螢幕、左右互換、收納功能，強制4K畫質)
 2. UI 彈性控制：字體大小、表格比例、首欄寬度調整
 3. 實驗表格精確對齊 Word 圖片需求 (含填空題)
 4. 評分預選機制：先選分數再儲存，並即時顯示 D 欄累計總分
-5. 修正讀取空紀錄或清除紀錄時，保留預設 1K 與 1000 數值
+5. [修復] 補上 step="any" 解決小數點數值無法自動計算的比值問題
 ==========================================
 -->
 <!DOCTYPE html>
@@ -15,7 +15,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>電子電路實驗紀錄系統 v2.7</title>
+    <title>電子電路實驗紀錄系統 v2.8</title>
     <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -92,7 +92,7 @@
         
         <div class="p-4 bg-blue-50 border-b border-blue-100 shrink-0">
             <div class="flex items-center justify-between mb-3">
-                <h1 class="text-xl font-bold text-blue-900">實驗紀錄單 <span class="text-xs font-normal text-blue-600 bg-white px-1 border rounded ml-1">v2.7</span></h1>
+                <h1 class="text-xl font-bold text-blue-900">實驗紀錄單 <span class="text-xs font-normal text-blue-600 bg-white px-1 border rounded ml-1">v2.8</span></h1>
             </div>
 
             <div class="grid grid-cols-2 gap-2 mb-3">
@@ -235,7 +235,7 @@
     cameraSelect.addEventListener('change', startStream);
     document.getElementById('refreshCamBtn').addEventListener('click', initCamera);
 
-    // --- 實驗表格渲染 ---
+    // --- 實驗表格渲染 (加上 step="any" 修復小數點問題) ---
     function renderTable() {
         const val = document.getElementById('expSelect').value;
         const container = document.getElementById('table-container');
@@ -247,9 +247,9 @@
                 <table class="border-collapse text-center">
                     <thead><tr class="bg-blue-50 border"><th class="border">電壓</th><th class="border">實際電壓(V)</th><th class="border">電流(mA)</th><th class="border">比值(Ω)</th></tr></thead>
                     <tbody>
-                        <tr><td class="border bg-gray-50">1.5V</td><td class="border"><input type="number" class="table-input input-v"></td><td class="border"><input type="number" class="table-input input-i"></td><td class="border font-bold result-r">-</td></tr>
-                        <tr><td class="border bg-gray-50">3V</td><td class="border"><input type="number" class="table-input input-v"></td><td class="border"><input type="number" class="table-input input-i"></td><td class="border font-bold result-r">-</td></tr>
-                        <tr><td class="border bg-gray-50">4.5V</td><td class="border"><input type="number" class="table-input input-v"></td><td class="border"><input type="number" class="table-input input-i"></td><td class="border font-bold result-r">-</td></tr>
+                        <tr><td class="border bg-gray-50">1.5V</td><td class="border"><input type="number" class="table-input input-v" step="any"></td><td class="border"><input type="number" class="table-input input-i" step="any"></td><td class="border font-bold result-r">-</td></tr>
+                        <tr><td class="border bg-gray-50">3V</td><td class="border"><input type="number" class="table-input input-v" step="any"></td><td class="border"><input type="number" class="table-input input-i" step="any"></td><td class="border font-bold result-r">-</td></tr>
+                        <tr><td class="border bg-gray-50">4.5V</td><td class="border"><input type="number" class="table-input input-v" step="any"></td><td class="border"><input type="number" class="table-input input-i" step="any"></td><td class="border font-bold result-r">-</td></tr>
                     </tbody>
                 </table>
                 <div class="mt-3 text-[var(--font-size)] space-y-1 text-gray-700">
@@ -264,9 +264,9 @@
                 <table class="border-collapse text-center">
                     <thead><tr class="bg-blue-50 border text-[0.8em]"><th class="border">電阻組合</th><th class="border">三用電表(Ω)</th><th class="border">電壓(V)</th><th class="border">電流(mA)</th><th class="border">比值(Ω)</th></tr></thead>
                     <tbody>
-                        <tr><td class="border px-1">1個：<input type="text" class="fill-blank w-10" value="1K"></td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input input-v"></td><td class="border"><input type="number" class="table-input input-i"></td><td class="border font-bold result-r">-</td></tr>
-                        <tr><td class="border px-1">2個：<input type="text" class="fill-blank w-8" value="1K">${sym}<input type="text" class="fill-blank w-8" value="1K"></td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input input-v"></td><td class="border"><input type="number" class="table-input input-i"></td><td class="border font-bold result-r">-</td></tr>
-                        <tr><td class="border px-1">3個：<input type="text" class="fill-blank w-6" value="1K">${sym}<input type="text" class="fill-blank w-6" value="1K">${sym}<input type="text" class="fill-blank w-6" value="1K"></td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input input-v"></td><td class="border"><input type="number" class="table-input input-i"></td><td class="border font-bold result-r">-</td></tr>
+                        <tr><td class="border px-1">1個：<input type="text" class="fill-blank w-10" value="1K"></td><td class="border"><input type="number" class="table-input" step="any"></td><td class="border"><input type="number" class="table-input input-v" step="any"></td><td class="border"><input type="number" class="table-input input-i" step="any"></td><td class="border font-bold result-r">-</td></tr>
+                        <tr><td class="border px-1">2個：<input type="text" class="fill-blank w-8" value="1K">${sym}<input type="text" class="fill-blank w-8" value="1K"></td><td class="border"><input type="number" class="table-input" step="any"></td><td class="border"><input type="number" class="table-input input-v" step="any"></td><td class="border"><input type="number" class="table-input input-i" step="any"></td><td class="border font-bold result-r">-</td></tr>
+                        <tr><td class="border px-1">3個：<input type="text" class="fill-blank w-6" value="1K">${sym}<input type="text" class="fill-blank w-6" value="1K">${sym}<input type="text" class="fill-blank w-6" value="1K"></td><td class="border"><input type="number" class="table-input" step="any"></td><td class="border"><input type="number" class="table-input input-v" step="any"></td><td class="border"><input type="number" class="table-input input-i" step="any"></td><td class="border font-bold result-r">-</td></tr>
                     </tbody>
                 </table>
                 <div class="mt-3 text-[var(--font-size)]">結論：<input type="text" class="fill-blank w-full"></div>`;
@@ -276,9 +276,9 @@
                 <table class="border-collapse text-center">
                     <thead><tr class="bg-green-50 border"><th class="border">電阻</th><th class="border">電阻(Ω)</th><th class="border">電壓(V)</th><th class="border">電流(mA)</th></tr></thead>
                     <tbody>
-                        <tr><td class="border font-bold bg-gray-50">迴路 1</td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input"></td></tr>
-                        <tr><td class="border font-bold bg-gray-50">迴路 2</td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input"></td></tr>
-                        <tr><td class="border font-bold bg-gray-50 italic">總</td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input"></td></tr>
+                        <tr><td class="border font-bold bg-gray-50">迴路 1</td><td class="border"><input type="number" class="table-input" step="any"></td><td class="border"><input type="number" class="table-input" step="any"></td><td class="border"><input type="number" class="table-input" step="any"></td></tr>
+                        <tr><td class="border font-bold bg-gray-50">迴路 2</td><td class="border"><input type="number" class="table-input" step="any"></td><td class="border"><input type="number" class="table-input" step="any"></td><td class="border"><input type="number" class="table-input" step="any"></td></tr>
+                        <tr><td class="border font-bold bg-gray-50 italic">總</td><td class="border"><input type="number" class="table-input" step="any"></td><td class="border"><input type="number" class="table-input" step="any"></td><td class="border"><input type="number" class="table-input" step="any"></td></tr>
                     </tbody>
                 </table>
                 <div class="mt-4 text-[var(--font-size)] space-y-1.5 text-gray-800">
@@ -329,7 +329,7 @@
         if (!currentStudent) return;
         const amount = scoreSign * scoreVal;
         const btn = document.getElementById('confirmScoreBtn');
-        btn.disabled = true; btn.textContent = '雲端紀錄中...';
+        btn.disabled = true; btn.textContent = '傳送中...';
         
         const r = await apiCall({ action: 'updateScore', studentRow: currentStudent.row, amount: amount });
         if (r.status === 'success') {
@@ -378,14 +378,28 @@
         } else { list.innerHTML = '<div class="p-8 text-center text-gray-400 italic">尚未查到該班級資料</div>'; }
     }
 
+    // --- 計算邏輯 (加入智慧電壓防呆) ---
     function calculateRatio() {
         document.querySelectorAll('#table-container tr').forEach(row => {
             const vIn = row.querySelector('.input-v');
             const iIn = row.querySelector('.input-i');
-            const v = vIn ? parseFloat(vIn.value) : parseFloat(row.cells[0]?.innerText.replace('V',''));
-            const i = iIn ? parseFloat(iIn.value) : null;
+            
+            let v = NaN;
+            // 如果輸入框有值，優先使用輸入框的值
+            if (vIn && vIn.value !== "") {
+                v = parseFloat(vIn.value);
+            } 
+            // 若輸入框為空，且是實驗一(第一欄帶有 'V')，自動採用理論電壓進行防呆計算
+            else if (row.cells[0] && row.cells[0].innerText.includes('V')) {
+                v = parseFloat(row.cells[0].innerText.replace('V',''));
+            }
+
+            const i = iIn && iIn.value !== "" ? parseFloat(iIn.value) : NaN;
             const res = row.querySelector('.result-r');
-            if (res) res.textContent = (!isNaN(v) && !isNaN(i) && i !== 0) ? ((v / i) * 1000).toFixed(2) : '-';
+            
+            if (res) {
+                res.textContent = (!isNaN(v) && !isNaN(i) && i !== 0) ? ((v / i) * 1000).toFixed(2) : '-';
+            }
         });
     }
 
@@ -397,7 +411,7 @@
             ins.forEach((input, idx) => { if (r.data[idx] !== undefined) input.value = r.data[idx]; });
             calculateRatio();
         } else { 
-            // 找不到紀錄時，恢復預設值(例如1K)
+            // 【修復】找不到紀錄時，恢復為 input 內的預設值(如 1K)
             document.querySelectorAll('#table-container input').forEach(input => input.value = input.defaultValue); 
             calculateRatio();
         }
@@ -414,6 +428,7 @@
     document.getElementById('clearBtn').addEventListener('click', async () => {
         const res = await apiCall({ action: 'clear', grade: document.getElementById('gradeSelect').value, className: document.getElementById('classSelect').value, expType: document.getElementById('expSelect').value });
         if (res.status === 'success') { 
+            // 【修復】清除時也恢復為預設值
             document.querySelectorAll('#table-container input').forEach(i => i.value = i.defaultValue); 
             calculateRatio();
             showModal('清除成功', '紀錄已刪除。'); 
