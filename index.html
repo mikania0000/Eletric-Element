@@ -1,13 +1,12 @@
 <!--
 ==========================================
 實驗紀錄系統 - 前端網頁 (旗艦功能版)
-版本：v2.8 (修復小數點無法計算問題、智慧電壓防呆)
+版本：v2.9 (批次儲存加扣分機制、零延遲操作體驗)
 功能：
 1. 實物投影機視訊 (支援全螢幕、左右互換、收納功能，強制4K畫質)
 2. UI 彈性控制：字體大小、表格比例、首欄寬度調整
-3. 實驗表格精確對齊 Word 圖片需求 (含填空題)
-4. 評分預選機制：先選分數再儲存，並即時顯示 D 欄累計總分
-5. [修復] 補上 step="any" 解決小數點數值無法自動計算的比值問題
+3. 實驗表格精確對齊 Word 圖片需求
+4. [新增] 加扣分先暫存於網頁端，顯示未儲存提示，稍後點擊一次上傳
 ==========================================
 -->
 <!DOCTYPE html>
@@ -15,7 +14,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>電子電路實驗紀錄系統 v2.8</title>
+    <title>電子電路實驗紀錄系統 v2.9</title>
     <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -71,7 +70,7 @@
     <!-- 視訊顯示區 -->
     <div id="videoContainer" class="relative bg-black flex flex-col items-center justify-center p-2 flex-1 h-full min-w-0 transition-layout">
         
-        <!-- 左上角常駐控制列 (包含全螢幕) -->
+        <!-- 左上角常駐控制列 -->
         <div class="absolute top-4 left-4 z-10 bg-white/90 p-2 rounded-lg shadow flex items-center gap-2">
             <select id="cameraSelect" class="border rounded p-1 text-sm outline-none max-w-[120px]"></select>
             <button id="refreshCamBtn" class="bg-blue-100 hover:bg-blue-200 p-1.5 rounded" title="重新偵測"><svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-width="2" stroke-linecap="round"/></svg></button>
@@ -92,7 +91,7 @@
         
         <div class="p-4 bg-blue-50 border-b border-blue-100 shrink-0">
             <div class="flex items-center justify-between mb-3">
-                <h1 class="text-xl font-bold text-blue-900">實驗紀錄單 <span class="text-xs font-normal text-blue-600 bg-white px-1 border rounded ml-1">v2.8</span></h1>
+                <h1 class="text-xl font-bold text-blue-900">實驗紀錄單 <span class="text-xs font-normal text-blue-600 bg-white px-1 border rounded ml-1">v2.9</span></h1>
             </div>
 
             <div class="grid grid-cols-2 gap-2 mb-3">
@@ -121,7 +120,7 @@
             <!-- 表格容器 -->
             <div id="table-container" class="bg-white p-3 rounded-lg shadow-sm border border-gray-200 overflow-x-auto min-h-[100px]"></div>
             
-            <!-- 學生評分區 -->
+            <!-- 學生評分區 (先選後存) -->
             <div id="gradingPanel" class="hidden bg-blue-50 border-2 border-blue-200 p-4 rounded-xl shadow-inner animate-pulse-slow">
                 <div class="flex items-center justify-between mb-3">
                     <span id="selectedStudentName" class="font-black text-blue-800 text-lg">選擇學生</span>
@@ -139,7 +138,7 @@
                         <button class="score-pill score-val" data-val="4">4</button>
                         <button class="score-pill score-val" data-val="5">5</button>
                     </div>
-                    <button id="confirmScoreBtn" class="w-full bg-blue-600 text-white font-bold py-2 rounded-lg shadow-lg hover:bg-blue-700 transition-all active:scale-95">確認紀錄</button>
+                    <button id="confirmScoreBtn" class="w-full bg-blue-600 text-white font-bold py-2 rounded-lg shadow-lg hover:bg-blue-700 transition-all active:scale-95">確認紀錄 (先存網頁)</button>
                 </div>
             </div>
 
@@ -147,7 +146,11 @@
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                 <div class="bg-gray-100 px-4 py-2 border-b flex justify-between items-center text-sm font-bold">
                     <span>名單 (點擊可評分)</span>
-                    <span id="studentCount" class="text-xs font-mono bg-gray-200 px-2 py-0.5 rounded text-gray-600">--</span>
+                    <div class="flex items-center gap-2">
+                        <!-- 批次上傳按鈕 -->
+                        <button id="batchSaveScoresBtn" class="hidden bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs shadow-md animate-pulse active:scale-95 transition-all">上傳全班分數</button>
+                        <span id="studentCount" class="text-xs font-mono bg-gray-200 px-2 py-0.5 rounded text-gray-600">--</span>
+                    </div>
                 </div>
                 <div id="student-list" class="divide-y divide-gray-100 max-h-[400px] overflow-y-auto no-scrollbar"></div>
             </div>
@@ -188,6 +191,9 @@
     const sidebarIcon = document.getElementById('sidebar-icon');
     let isSidebarOpen = true;
 
+    // 用來暫存尚未上傳雲端的加扣分 { 學生列數: 變化量 }
+    let pendingScores = {};
+
     function updateLayout() {
         if (!isSidebarOpen) { sidebar.style.width = '0px'; sidebar.style.minWidth = '0px'; sidebarIcon.style.transform = 'rotate(180deg)'; }
         else { const isMobile = window.innerWidth < 768; sidebar.style.width = isMobile ? '100%' : '450px'; sidebar.style.minWidth = isMobile ? '100%' : '450px'; sidebarIcon.style.transform = 'rotate(0deg)'; }
@@ -223,6 +229,7 @@
     async function startStream() {
         if (!cameraSelect.value) return;
         try {
+            // 強制索取 4K 畫質 (3840x2160)
             const s = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: cameraSelect.value }, width: { ideal: 3840 }, height: { ideal: 2160 } } });
             video.srcObject = s;
         } catch (err) {
@@ -235,7 +242,7 @@
     cameraSelect.addEventListener('change', startStream);
     document.getElementById('refreshCamBtn').addEventListener('click', initCamera);
 
-    // --- 實驗表格渲染 (加上 step="any" 修復小數點問題) ---
+    // --- 實驗表格渲染 (對齊需求修正) ---
     function renderTable() {
         const val = document.getElementById('expSelect').value;
         const container = document.getElementById('table-container');
@@ -291,7 +298,7 @@
         executeLoad(true);
     }
 
-    // --- 評分邏輯 ---
+    // --- 評分邏輯 (零延遲本地暫存) ---
     let currentStudent = null;
     let scoreSign = 1; // 1: 加, -1: 扣
     let scoreVal = 1;
@@ -325,25 +332,67 @@
         });
     });
 
-    document.getElementById('confirmScoreBtn').addEventListener('click', async () => {
+    // 按下確認：僅在網頁端暫存與顯示，不呼叫 API
+    document.getElementById('confirmScoreBtn').addEventListener('click', () => {
         if (!currentStudent) return;
         const amount = scoreSign * scoreVal;
-        const btn = document.getElementById('confirmScoreBtn');
-        btn.disabled = true; btn.textContent = '傳送中...';
         
-        const r = await apiCall({ action: 'updateScore', studentRow: currentStudent.row, amount: amount });
-        if (r.status === 'success') {
-            const disp = document.querySelector(`.score-display[data-row="${currentStudent.row}"]`);
-            if (disp) disp.textContent = r.newVal + ' 分';
-            
-            const eff = document.createElement('div'); eff.textContent = (amount > 0 ? '+' : '') + amount;
-            eff.className = `absolute right-24 top-2 font-black text-xl pointer-events-none animate-bounce ${amount > 0 ? 'text-green-500' : 'text-red-500'}`;
-            document.querySelector(`.student-item[data-row="${currentStudent.row}"]`).appendChild(eff);
-            setTimeout(() => { eff.remove(); closeGrading(); }, 800);
-        } else {
-            showModal('錯誤', '分數儲存失敗，請檢查網路連線。');
+        // 1. 寫入暫存
+        pendingScores[currentStudent.row] = (pendingScores[currentStudent.row] || 0) + amount;
+        
+        // 2. 畫面即時更新
+        const disp = document.querySelector(`.score-display[data-row="${currentStudent.row}"]`);
+        if (disp) {
+            let curScore = parseInt(disp.dataset.score) || 0;
+            curScore += amount;
+            disp.dataset.score = curScore;
+            disp.textContent = curScore + ' 分';
+            // 標示為紅色(未儲存狀態)
+            disp.classList.remove('bg-amber-100', 'text-amber-700');
+            disp.classList.add('bg-red-100', 'text-red-700');
         }
-        btn.disabled = false; btn.textContent = '確認紀錄';
+        
+        // 動畫特效
+        const eff = document.createElement('div'); eff.textContent = (amount > 0 ? '+' : '') + amount;
+        eff.className = `absolute right-24 top-2 font-black text-xl pointer-events-none animate-bounce ${amount > 0 ? 'text-green-500' : 'text-red-500'}`;
+        document.querySelector(`.student-item[data-row="${currentStudent.row}"]`).appendChild(eff);
+        
+        // 顯示上傳按鈕
+        document.getElementById('batchSaveScoresBtn').classList.remove('hidden');
+
+        setTimeout(() => { eff.remove(); closeGrading(); }, 400);
+    });
+
+    // 批次上傳全班分數到雲端
+    document.getElementById('batchSaveScoresBtn').addEventListener('click', async () => {
+        if (Object.keys(pendingScores).length === 0) return;
+        
+        const btn = document.getElementById('batchSaveScoresBtn');
+        btn.disabled = true;
+        btn.textContent = '上傳中...';
+        btn.classList.remove('animate-pulse');
+
+        const r = await apiCall({ action: 'batchUpdateScores', scores: pendingScores });
+        
+        if (r.status === 'success') {
+            pendingScores = {}; // 清空暫存
+            btn.classList.add('hidden');
+            btn.textContent = '上傳全班分數';
+            btn.classList.add('animate-pulse');
+            btn.disabled = false;
+
+            // 恢復視覺標示為已儲存狀態
+            document.querySelectorAll('.score-display').forEach(disp => {
+                disp.classList.add('bg-amber-100', 'text-amber-700');
+                disp.classList.remove('bg-red-100', 'text-red-700');
+            });
+
+            showModal('完成', '所有學生的加扣分已成功更新至雲端試算表！');
+        } else {
+            btn.disabled = false;
+            btn.textContent = '上傳失敗';
+            showModal('錯誤', '儲存失敗，請檢查網路連線。');
+        }
     });
 
     // --- 數據通訊 ---
@@ -353,6 +402,10 @@
     }
 
     async function loadStudents() {
+        // 切換班級時，清空暫存分數與上傳按鈕
+        pendingScores = {};
+        document.getElementById('batchSaveScoresBtn').classList.add('hidden');
+
         const list = document.getElementById('student-list');
         list.innerHTML = '<div class="p-8 text-center text-gray-400 text-sm">載入名單中...</div>';
         const r = await apiCall({ action: 'getStudents', grade: document.getElementById('gradeSelect').value, className: document.getElementById('classSelect').value });
@@ -371,35 +424,26 @@
                     </div>
                     <div class="flex flex-col items-end">
                         <span class="text-[10px] text-gray-400 font-bold uppercase leading-none mb-1">總分</span>
-                        <span class="text-sm font-black px-2 py-0.5 bg-amber-100 text-amber-700 rounded-md score-display" data-row="${s.row}">${s.score} 分</span>
+                        <span class="text-sm font-black px-2 py-0.5 bg-amber-100 text-amber-700 rounded-md score-display transition-colors" data-row="${s.row}" data-score="${s.score}">${s.score} 分</span>
                     </div>`;
                 list.appendChild(item);
             });
         } else { list.innerHTML = '<div class="p-8 text-center text-gray-400 italic">尚未查到該班級資料</div>'; }
     }
 
-    // --- 計算邏輯 (加入智慧電壓防呆) ---
     function calculateRatio() {
         document.querySelectorAll('#table-container tr').forEach(row => {
             const vIn = row.querySelector('.input-v');
             const iIn = row.querySelector('.input-i');
             
             let v = NaN;
-            // 如果輸入框有值，優先使用輸入框的值
-            if (vIn && vIn.value !== "") {
-                v = parseFloat(vIn.value);
-            } 
-            // 若輸入框為空，且是實驗一(第一欄帶有 'V')，自動採用理論電壓進行防呆計算
-            else if (row.cells[0] && row.cells[0].innerText.includes('V')) {
-                v = parseFloat(row.cells[0].innerText.replace('V',''));
-            }
+            if (vIn && vIn.value !== "") v = parseFloat(vIn.value);
+            else if (row.cells[0] && row.cells[0].innerText.includes('V')) v = parseFloat(row.cells[0].innerText.replace('V',''));
 
             const i = iIn && iIn.value !== "" ? parseFloat(iIn.value) : NaN;
             const res = row.querySelector('.result-r');
             
-            if (res) {
-                res.textContent = (!isNaN(v) && !isNaN(i) && i !== 0) ? ((v / i) * 1000).toFixed(2) : '-';
-            }
+            if (res) res.textContent = (!isNaN(v) && !isNaN(i) && i !== 0) ? ((v / i) * 1000).toFixed(2) : '-';
         });
     }
 
@@ -411,7 +455,7 @@
             ins.forEach((input, idx) => { if (r.data[idx] !== undefined) input.value = r.data[idx]; });
             calculateRatio();
         } else { 
-            // 【修復】找不到紀錄時，恢復為 input 內的預設值(如 1K)
+            // 找不到紀錄時，恢復為 input 內的預設值(如 1K)
             document.querySelectorAll('#table-container input').forEach(input => input.value = input.defaultValue); 
             calculateRatio();
         }
@@ -428,7 +472,6 @@
     document.getElementById('clearBtn').addEventListener('click', async () => {
         const res = await apiCall({ action: 'clear', grade: document.getElementById('gradeSelect').value, className: document.getElementById('classSelect').value, expType: document.getElementById('expSelect').value });
         if (res.status === 'success') { 
-            // 【修復】清除時也恢復為預設值
             document.querySelectorAll('#table-container input').forEach(i => i.value = i.defaultValue); 
             calculateRatio();
             showModal('清除成功', '紀錄已刪除。'); 
