@@ -1,12 +1,12 @@
 <!--
 ==========================================
 實驗紀錄系統 - 前端網頁 (旗艦功能版)
-版本：v2.9 (批次儲存加扣分機制、零延遲操作體驗)
+版本：v2.10 (支援拖曳分隔線自由調整面板比例)
 功能：
 1. 實物投影機視訊 (支援全螢幕、左右互換、收納功能，強制4K畫質)
 2. UI 彈性控制：字體大小、表格比例、首欄寬度調整
-3. 實驗表格精確對齊 Word 圖片需求
-4. [新增] 加扣分先暫存於網頁端，顯示未儲存提示，稍後點擊一次上傳
+3. [新增] 視訊與面板中間新增「拖曳分隔線」，可自由拉伸兩邊比例
+4. 評分預選機制：先選分數再儲存，並即時顯示 D 欄累計總分
 ==========================================
 -->
 <!DOCTYPE html>
@@ -14,7 +14,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>電子電路實驗紀錄系統 v2.9</title>
+    <title>電子電路實驗紀錄系統 v2.10</title>
     <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -61,6 +61,17 @@
         }
         .sign-btn.active-plus { background-color: #10b981; color: white; border-color: #10b981; }
         .sign-btn.active-minus { background-color: #ef4444; color: white; border-color: #ef4444; }
+
+        /* 拖曳分隔線樣式 */
+        .resizer-line {
+            width: 8px;
+            background-color: #e5e7eb;
+            cursor: col-resize;
+            transition: background-color 0.2s;
+        }
+        .resizer-line:hover, .resizer-line:active {
+            background-color: #60a5fa;
+        }
     </style>
 </head>
 <body class="bg-gray-100 font-sans h-screen overflow-hidden">
@@ -86,12 +97,17 @@
         <div id="noCameraMsg" class="hidden absolute inset-0 flex flex-col items-center justify-center text-gray-400 bg-gray-900/80">偵測不到攝影機</div>
     </div>
 
+    <!-- 拖曳分隔線 (Resizer) -->
+    <div id="resizer" class="hidden md:flex resizer-line z-40 items-center justify-center shrink-0">
+        <div class="w-1 h-8 bg-gray-400 rounded-full"></div>
+    </div>
+
     <!-- 紀錄面板側邊欄 -->
-    <div id="sidebar" class="w-full md:w-[450px] bg-white flex flex-col shadow-2xl z-20 h-1/2 md:h-full transition-layout overflow-hidden shrink-0">
+    <div id="sidebar" class="w-full bg-white flex flex-col shadow-2xl z-20 h-1/2 md:h-full transition-layout overflow-hidden shrink-0" style="width: 450px; min-width: 300px;">
         
         <div class="p-4 bg-blue-50 border-b border-blue-100 shrink-0">
             <div class="flex items-center justify-between mb-3">
-                <h1 class="text-xl font-bold text-blue-900">實驗紀錄單 <span class="text-xs font-normal text-blue-600 bg-white px-1 border rounded ml-1">v2.9</span></h1>
+                <h1 class="text-xl font-bold text-blue-900">實驗紀錄單 <span class="text-xs font-normal text-blue-600 bg-white px-1 border rounded ml-1">v2.10</span></h1>
             </div>
 
             <div class="grid grid-cols-2 gap-2 mb-3">
@@ -189,18 +205,82 @@
     const sidebar = document.getElementById('sidebar');
     const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
     const sidebarIcon = document.getElementById('sidebar-icon');
+    const resizer = document.getElementById('resizer');
+    
     let isSidebarOpen = true;
+    let currentSidebarWidth = 450; // 預設側邊欄寬度
 
-    // 用來暫存尚未上傳雲端的加扣分 { 學生列數: 變化量 }
-    let pendingScores = {};
+    // --- 拖曳調整寬度邏輯 (Resizer) ---
+    let isResizing = false;
+    let lastDownX = 0;
 
+    resizer.addEventListener('mousedown', (e) => {
+        isResizing = true;
+        lastDownX = e.clientX;
+        document.body.style.cursor = 'col-resize';
+        
+        // 拖曳時停用過渡動畫與視訊點擊穿透，避免卡頓
+        document.getElementById('videoContainer').style.pointerEvents = 'none';
+        sidebar.style.pointerEvents = 'none';
+        mainContainer.classList.remove('transition-layout');
+        document.getElementById('videoContainer').classList.remove('transition-layout');
+        sidebar.classList.remove('transition-layout');
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isResizing) return;
+        const isSwapped = mainContainer.classList.contains('md:flex-row-reverse');
+        
+        let dx = e.clientX - lastDownX;
+        lastDownX = e.clientX;
+
+        // 若左右互換，拖曳方向對應的寬度增減會反轉
+        if (isSwapped) {
+            currentSidebarWidth += dx; 
+        } else {
+            currentSidebarWidth -= dx; 
+        }
+
+        // 限制最小與最大寬度
+        if (currentSidebarWidth < 300) currentSidebarWidth = 300;
+        if (currentSidebarWidth > window.innerWidth * 0.7) currentSidebarWidth = window.innerWidth * 0.7;
+
+        sidebar.style.width = currentSidebarWidth + 'px';
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (isResizing) {
+            isResizing = false;
+            document.body.style.cursor = '';
+            
+            // 恢復事件與過渡動畫
+            document.getElementById('videoContainer').style.pointerEvents = '';
+            sidebar.style.pointerEvents = '';
+            mainContainer.classList.add('transition-layout');
+            document.getElementById('videoContainer').classList.add('transition-layout');
+            sidebar.classList.add('transition-layout');
+        }
+    });
+
+    // --- 側邊欄收納邏輯 ---
     function updateLayout() {
-        if (!isSidebarOpen) { sidebar.style.width = '0px'; sidebar.style.minWidth = '0px'; sidebarIcon.style.transform = 'rotate(180deg)'; }
-        else { const isMobile = window.innerWidth < 768; sidebar.style.width = isMobile ? '100%' : '450px'; sidebar.style.minWidth = isMobile ? '100%' : '450px'; sidebarIcon.style.transform = 'rotate(0deg)'; }
+        const isMobile = window.innerWidth < 768;
+        if (!isSidebarOpen) { 
+            sidebar.style.width = '0px'; 
+            sidebar.style.minWidth = '0px'; 
+            sidebarIcon.style.transform = 'rotate(180deg)'; 
+            resizer.style.display = 'none';
+        } else { 
+            sidebar.style.width = isMobile ? '100%' : currentSidebarWidth + 'px'; 
+            sidebar.style.minWidth = isMobile ? '100%' : '300px'; 
+            sidebarIcon.style.transform = 'rotate(0deg)'; 
+            resizer.style.display = isMobile ? 'none' : 'flex';
+        }
     }
     toggleSidebarBtn.addEventListener('click', () => { isSidebarOpen = !isSidebarOpen; updateLayout(); });
     window.addEventListener('resize', updateLayout);
 
+    // --- UI 控制 ---
     const fontSlider = document.getElementById('fontSlider');
     const colWidthSlider = document.getElementById('colWidthSlider');
     fontSlider.addEventListener('input', () => document.documentElement.style.setProperty('--font-size', fontSlider.value + 'px'));
@@ -299,6 +379,8 @@
     }
 
     // --- 評分邏輯 (零延遲本地暫存) ---
+    // 用來暫存尚未上傳雲端的加扣分 { 學生列數: 變化量 }
+    let pendingScores = {};
     let currentStudent = null;
     let scoreSign = 1; // 1: 加, -1: 扣
     let scoreVal = 1;
