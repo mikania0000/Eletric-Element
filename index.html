@@ -1,12 +1,12 @@
 <!--
 ==========================================
 實驗紀錄系統 - 前端網頁 (旗艦功能版)
-版本：v2.10 (支援拖曳分隔線自由調整面板比例)
+版本：v2.12 (小老師與加扣分全面採用本地暫存+批次上傳)
 功能：
 1. 實物投影機視訊 (支援全螢幕、左右互換、收納功能，強制4K畫質)
-2. UI 彈性控制：字體大小、表格比例、首欄寬度調整
-3. [新增] 視訊與面板中間新增「拖曳分隔線」，可自由拉伸兩邊比例
-4. 評分預選機制：先選分數再儲存，並即時顯示 D 欄累計總分
+2. UI 彈性控制：字體大小、拖曳分隔線、首欄寬度調整
+3. 實驗表格精確對齊需求 (實際電壓、1K預設值、填空題)
+4. 小老師與加扣分「先暫存網頁」，顯示紅字未儲存提示，稍後點擊一次上傳
 ==========================================
 -->
 <!DOCTYPE html>
@@ -14,7 +14,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>電子電路實驗紀錄系統 v2.10</title>
+    <title>電子電路實驗紀錄系統 v2.12</title>
     <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -107,7 +107,7 @@
         
         <div class="p-4 bg-blue-50 border-b border-blue-100 shrink-0">
             <div class="flex items-center justify-between mb-3">
-                <h1 class="text-xl font-bold text-blue-900">實驗紀錄單 <span class="text-xs font-normal text-blue-600 bg-white px-1 border rounded ml-1">v2.10</span></h1>
+                <h1 class="text-xl font-bold text-blue-900">實驗紀錄單 <span class="text-xs font-normal text-blue-600 bg-white px-1 border rounded ml-1">v2.12</span></h1>
             </div>
 
             <div class="grid grid-cols-2 gap-2 mb-3">
@@ -164,7 +164,7 @@
                     <span>名單 (點擊可評分)</span>
                     <div class="flex items-center gap-2">
                         <!-- 批次上傳按鈕 -->
-                        <button id="batchSaveScoresBtn" class="hidden bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs shadow-md animate-pulse active:scale-95 transition-all">上傳全班分數</button>
+                        <button id="batchSaveScoresBtn" class="hidden bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs shadow-md animate-pulse active:scale-95 transition-all">上傳全班資料</button>
                         <span id="studentCount" class="text-xs font-mono bg-gray-200 px-2 py-0.5 rounded text-gray-600">--</span>
                     </div>
                 </div>
@@ -208,9 +208,9 @@
     const resizer = document.getElementById('resizer');
     
     let isSidebarOpen = true;
-    let currentSidebarWidth = 450; // 預設側邊欄寬度
+    let currentSidebarWidth = 450; 
 
-    // --- 拖曳調整寬度邏輯 (Resizer) ---
+    // --- 拖曳調整寬度邏輯 ---
     let isResizing = false;
     let lastDownX = 0;
 
@@ -218,8 +218,6 @@
         isResizing = true;
         lastDownX = e.clientX;
         document.body.style.cursor = 'col-resize';
-        
-        // 拖曳時停用過渡動畫與視訊點擊穿透，避免卡頓
         document.getElementById('videoContainer').style.pointerEvents = 'none';
         sidebar.style.pointerEvents = 'none';
         mainContainer.classList.remove('transition-layout');
@@ -230,21 +228,14 @@
     document.addEventListener('mousemove', (e) => {
         if (!isResizing) return;
         const isSwapped = mainContainer.classList.contains('md:flex-row-reverse');
-        
         let dx = e.clientX - lastDownX;
         lastDownX = e.clientX;
 
-        // 若左右互換，拖曳方向對應的寬度增減會反轉
-        if (isSwapped) {
-            currentSidebarWidth += dx; 
-        } else {
-            currentSidebarWidth -= dx; 
-        }
+        if (isSwapped) currentSidebarWidth += dx; 
+        else currentSidebarWidth -= dx; 
 
-        // 限制最小與最大寬度
         if (currentSidebarWidth < 300) currentSidebarWidth = 300;
         if (currentSidebarWidth > window.innerWidth * 0.7) currentSidebarWidth = window.innerWidth * 0.7;
-
         sidebar.style.width = currentSidebarWidth + 'px';
     });
 
@@ -252,8 +243,6 @@
         if (isResizing) {
             isResizing = false;
             document.body.style.cursor = '';
-            
-            // 恢復事件與過渡動畫
             document.getElementById('videoContainer').style.pointerEvents = '';
             sidebar.style.pointerEvents = '';
             mainContainer.classList.add('transition-layout');
@@ -262,7 +251,6 @@
         }
     });
 
-    // --- 側邊欄收納邏輯 ---
     function updateLayout() {
         const isMobile = window.innerWidth < 768;
         if (!isSidebarOpen) { 
@@ -280,7 +268,6 @@
     toggleSidebarBtn.addEventListener('click', () => { isSidebarOpen = !isSidebarOpen; updateLayout(); });
     window.addEventListener('resize', updateLayout);
 
-    // --- UI 控制 ---
     const fontSlider = document.getElementById('fontSlider');
     const colWidthSlider = document.getElementById('colWidthSlider');
     fontSlider.addEventListener('input', () => document.documentElement.style.setProperty('--font-size', fontSlider.value + 'px'));
@@ -309,20 +296,16 @@
     async function startStream() {
         if (!cameraSelect.value) return;
         try {
-            // 強制索取 4K 畫質 (3840x2160)
             const s = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: cameraSelect.value }, width: { ideal: 3840 }, height: { ideal: 2160 } } });
             video.srcObject = s;
         } catch (err) {
-            try {
-                const s = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: cameraSelect.value } } });
-                video.srcObject = s;
-            } catch (e) {}
+            try { const s = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: cameraSelect.value } } }); video.srcObject = s; } catch (e) {}
         }
     }
     cameraSelect.addEventListener('change', startStream);
     document.getElementById('refreshCamBtn').addEventListener('click', initCamera);
 
-    // --- 實驗表格渲染 (對齊需求修正) ---
+    // --- 實驗表格渲染 ---
     function renderTable() {
         const val = document.getElementById('expSelect').value;
         const container = document.getElementById('table-container');
@@ -378,11 +361,11 @@
         executeLoad(true);
     }
 
-    // --- 評分邏輯 (零延遲本地暫存) ---
-    // 用來暫存尚未上傳雲端的加扣分 { 學生列數: 變化量 }
+    // --- 評分與小老師邏輯 (本地暫存) ---
     let pendingScores = {};
+    let pendingTAs = {}; 
     let currentStudent = null;
-    let scoreSign = 1; // 1: 加, -1: 扣
+    let scoreSign = 1; 
     let scoreVal = 1;
 
     function openGrading(s) {
@@ -399,6 +382,15 @@
         currentStudent = null;
     }
 
+    // 小老師狀態切換，寫入暫存並顯示上傳按鈕
+    window.toggleTA = function(row, isChecked) {
+        pendingTAs[row] = isChecked;
+        document.getElementById('batchSaveScoresBtn').classList.remove('hidden');
+        
+        const nameEl = document.querySelector(`.student-item[data-row="${row}"] .student-name`);
+        if(nameEl) nameEl.classList.add('text-red-500');
+    };
+
     document.getElementById('signPlus').addEventListener('click', () => {
         scoreSign = 1; document.getElementById('signPlus').classList.add('active-plus'); document.getElementById('signMinus').classList.remove('active-minus');
     });
@@ -414,62 +406,59 @@
         });
     });
 
-    // 按下確認：僅在網頁端暫存與顯示，不呼叫 API
+    // 點擊確認紀錄：僅在網頁端暫存，不呼叫 API
     document.getElementById('confirmScoreBtn').addEventListener('click', () => {
         if (!currentStudent) return;
         const amount = scoreSign * scoreVal;
         
-        // 1. 寫入暫存
         pendingScores[currentStudent.row] = (pendingScores[currentStudent.row] || 0) + amount;
         
-        // 2. 畫面即時更新
         const disp = document.querySelector(`.score-display[data-row="${currentStudent.row}"]`);
         if (disp) {
             let curScore = parseInt(disp.dataset.score) || 0;
             curScore += amount;
             disp.dataset.score = curScore;
             disp.textContent = curScore + ' 分';
-            // 標示為紅色(未儲存狀態)
             disp.classList.remove('bg-amber-100', 'text-amber-700');
             disp.classList.add('bg-red-100', 'text-red-700');
         }
         
-        // 動畫特效
         const eff = document.createElement('div'); eff.textContent = (amount > 0 ? '+' : '') + amount;
         eff.className = `absolute right-24 top-2 font-black text-xl pointer-events-none animate-bounce ${amount > 0 ? 'text-green-500' : 'text-red-500'}`;
         document.querySelector(`.student-item[data-row="${currentStudent.row}"]`).appendChild(eff);
         
-        // 顯示上傳按鈕
         document.getElementById('batchSaveScoresBtn').classList.remove('hidden');
-
         setTimeout(() => { eff.remove(); closeGrading(); }, 400);
     });
 
-    // 批次上傳全班分數到雲端
+    // 批次上傳資料 (分數與小老師) 到雲端
     document.getElementById('batchSaveScoresBtn').addEventListener('click', async () => {
-        if (Object.keys(pendingScores).length === 0) return;
+        if (Object.keys(pendingScores).length === 0 && Object.keys(pendingTAs).length === 0) return;
         
         const btn = document.getElementById('batchSaveScoresBtn');
         btn.disabled = true;
         btn.textContent = '上傳中...';
         btn.classList.remove('animate-pulse');
 
-        const r = await apiCall({ action: 'batchUpdateScores', scores: pendingScores });
+        const r = await apiCall({ action: 'batchSync', scores: pendingScores, tas: pendingTAs });
         
         if (r.status === 'success') {
-            pendingScores = {}; // 清空暫存
+            pendingScores = {}; 
+            pendingTAs = {}; 
             btn.classList.add('hidden');
-            btn.textContent = '上傳全班分數';
+            btn.textContent = '上傳全班資料';
             btn.classList.add('animate-pulse');
             btn.disabled = false;
 
-            // 恢復視覺標示為已儲存狀態
             document.querySelectorAll('.score-display').forEach(disp => {
                 disp.classList.add('bg-amber-100', 'text-amber-700');
                 disp.classList.remove('bg-red-100', 'text-red-700');
             });
+            document.querySelectorAll('.student-name').forEach(name => {
+                name.classList.remove('text-red-500');
+            });
 
-            showModal('完成', '所有學生的加扣分已成功更新至雲端試算表！');
+            showModal('完成', '所有加扣分與小老師設定，已成功更新至雲端！');
         } else {
             btn.disabled = false;
             btn.textContent = '上傳失敗';
@@ -484,8 +473,8 @@
     }
 
     async function loadStudents() {
-        // 切換班級時，清空暫存分數與上傳按鈕
         pendingScores = {};
+        pendingTAs = {};
         document.getElementById('batchSaveScoresBtn').classList.add('hidden');
 
         const list = document.getElementById('student-list');
@@ -501,11 +490,15 @@
                 item.onclick = () => openGrading(s);
                 item.innerHTML = `
                     <div class="flex items-center gap-3">
-                        <span class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">${s.no}</span>
-                        <span class="font-bold text-gray-800 text-base">${s.name}</span>
+                        <span class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs shrink-0">${s.no}</span>
+                        <span class="font-bold text-gray-800 text-base student-name transition-colors">${s.name}</span>
+                        <label class="flex items-center gap-1.5 cursor-pointer bg-gray-100 px-2 py-1 rounded hover:bg-gray-200 transition-colors ml-1" onclick="event.stopPropagation();">
+                            <input type="checkbox" class="w-3.5 h-3.5 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer" ${s.isTA ? 'checked' : ''} onchange="toggleTA(${s.row}, this.checked)">
+                            <span class="text-[11px] text-gray-600 font-bold select-none">小老師</span>
+                        </label>
                     </div>
-                    <div class="flex flex-col items-end">
-                        <span class="text-[10px] text-gray-400 font-bold uppercase leading-none mb-1">總分</span>
+                    <div class="flex flex-col items-end shrink-0">
+                        <span class="text-[10px] text-gray-400 font-bold uppercase leading-none mb-1">D欄總分</span>
                         <span class="text-sm font-black px-2 py-0.5 bg-amber-100 text-amber-700 rounded-md score-display transition-colors" data-row="${s.row}" data-score="${s.score}">${s.score} 分</span>
                     </div>`;
                 list.appendChild(item);
@@ -537,7 +530,6 @@
             ins.forEach((input, idx) => { if (r.data[idx] !== undefined) input.value = r.data[idx]; });
             calculateRatio();
         } else { 
-            // 找不到紀錄時，恢復為 input 內的預設值(如 1K)
             document.querySelectorAll('#table-container input').forEach(input => input.value = input.defaultValue); 
             calculateRatio();
         }
