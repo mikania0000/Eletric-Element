@@ -1,12 +1,12 @@
 <!--
 ==========================================
 實驗紀錄系統 - 前端網頁 (旗艦功能版)
-版本：v2.2 (名單顯示座號與分數、更名三用電表測量)
+版本：v2.7 (完美對接 D 欄總分累加機制、4K畫質、全螢幕修復)
 功能：
-1. 實物投影機視訊 (支援全螢幕、左右互換、收納功能)
+1. 實物投影機視訊 (支援全螢幕、左右互換、收納功能，強制4K畫質)
 2. UI 彈性控制：字體大小、表格比例、首欄寬度調整
-3. 實驗一至四表格對齊需求，實驗二、三加入「三用電表測量」與理論值
-4. 名單顯示 [座號] 姓名，並即時同步顯示今日得分
+3. 實驗表格精確對齊 Word 圖片需求 (含填空題)
+4. 評分預選機制：先選分數再儲存，並即時顯示 D 欄累計總分
 ==========================================
 -->
 <!DOCTYPE html>
@@ -14,21 +14,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>電子電路實驗紀錄系統 v2.2</title>
+    <title>電子電路實驗紀錄系統 v2.7</title>
     <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* 隱藏數字輸入框上下箭頭 */
         input[type="number"]::-webkit-outer-spin-button,
         input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         
         .transition-layout { transition: all 0.3s ease-in-out; }
         
-        /* 全域 CSS 變數，由 JS 滑桿控制 */
         :root {
             --table-width: 100%;
             --font-size: 14px;
-            --col1-width: 130px; 
+            --col1-width: 140px; 
         }
 
         #table-container table { 
@@ -38,31 +36,31 @@
             table-layout: fixed;
         }
 
-        /* 控制表格第一欄寬度 */
-        #table-container th:first-child, 
-        #table-container td:first-child { 
-            width: var(--col1-width); 
-            word-break: break-all;
-            padding-left: 2px;
-            padding-right: 2px;
+        #table-container th:first-child, #table-container td:first-child { 
+            width: var(--col1-width); word-break: break-all;
         }
         
-        .student-item { transition: background-color 0.2s; }
-        .student-item:hover { background-color: #f3f4f6; }
+        .student-item { transition: background-color 0.2s; border-radius: 8px; }
+        .student-item:hover { background-color: #f3f4f6; cursor: pointer; }
+        .student-item.selected { background-color: #ebf5ff; border: 2px solid #3b82f6; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         
-        /* 表格輸入框樣式 */
-        .table-input {
-            width: 100%;
-            text-align: center;
-            background-color: transparent;
-            outline: none;
-            border-bottom: 1px solid #e5e7eb;
-        }
+        .table-input { width: 100%; text-align: center; background: transparent; outline: none; border-bottom: 1px solid #e5e7eb; }
         .table-input:focus { border-bottom: 2px solid #3b82f6; }
-        
-        /* 填空題樣式 */
-        .fill-blank { border-bottom: 1px solid #4b5563; width: 50px; text-align: center; outline: none; background: transparent; }
+        .fill-blank { border-bottom: 1px solid #4b5563; width: 45px; text-align: center; outline: none; background: transparent; }
+
+        /* 評分按鈕樣式 */
+        .score-pill { 
+            width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+            border-radius: 6px; border: 1px solid #d1d5db; font-weight: bold; cursor: pointer; transition: all 0.1s;
+        }
+        .score-pill:hover { background-color: #f3f4f6; }
+        .score-pill.active { background-color: #3b82f6; color: white; border-color: #3b82f6; }
+        .sign-btn { 
+            padding: 4px 12px; border-radius: 6px; border: 1px solid #d1d5db; cursor: pointer; font-weight: bold;
+        }
+        .sign-btn.active-plus { background-color: #10b981; color: white; border-color: #10b981; }
+        .sign-btn.active-minus { background-color: #ef4444; color: white; border-color: #ef4444; }
     </style>
 </head>
 <body class="bg-gray-100 font-sans h-screen overflow-hidden">
@@ -72,119 +70,111 @@
     <!-- 視訊顯示區 -->
     <div id="videoContainer" class="relative bg-black flex flex-col items-center justify-center p-2 flex-1 h-full min-w-0 transition-layout">
         
-        <!-- 左上角控制按鈕 -->
+        <!-- 左上角常駐控制列 (包含全螢幕) -->
         <div class="absolute top-4 left-4 z-10 bg-white/90 p-2 rounded-lg shadow flex items-center gap-2">
-            <select id="cameraSelect" class="border border-gray-300 rounded p-1 text-sm outline-none cursor-pointer max-w-[120px] md:max-w-xs"></select>
-            <button id="refreshCamBtn" class="bg-blue-100 hover:bg-blue-200 p-1.5 rounded transition-colors" title="重新偵測攝影機">
-                <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-            </button>
-            <button id="swapLayoutBtn" class="bg-gray-200 hover:bg-gray-300 p-1.5 rounded transition-colors" title="左右互換">
-                <svg class="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
-            </button>
+            <select id="cameraSelect" class="border rounded p-1 text-sm outline-none max-w-[120px]"></select>
+            <button id="refreshCamBtn" class="bg-blue-100 hover:bg-blue-200 p-1.5 rounded" title="重新偵測"><svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-width="2" stroke-linecap="round"/></svg></button>
+            <button id="swapLayoutBtn" class="bg-gray-200 hover:bg-gray-300 p-1.5 rounded" title="左右互換"><svg class="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" stroke-width="2" stroke-linecap="round"/></svg></button>
+            <button id="fullscreenBtn" class="bg-gray-200 hover:bg-gray-300 p-1.5 rounded" title="全螢幕模式"><svg class="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg></button>
         </div>
         
-        <!-- 收納按鈕 -->
-        <button id="toggleSidebarBtn" class="absolute top-4 right-4 z-30 bg-blue-600 text-white p-2.5 rounded-full shadow-2xl hover:bg-blue-700 transition-all transform hover:scale-110">
-            <svg id="sidebar-icon" class="w-6 h-6 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path>
-            </svg>
+        <button id="toggleSidebarBtn" class="absolute top-4 right-4 z-30 bg-blue-600 text-white p-2.5 rounded-full shadow-2xl hover:bg-blue-700 transform active:scale-95 transition-all">
+            <svg id="sidebar-icon" class="w-6 h-6 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path></svg>
         </button>
 
-        <video id="video" class="w-full h-full object-contain bg-gray-900 rounded shadow-inner" autoplay playsinline></video>
-        <div id="noCameraMsg" class="hidden absolute inset-0 flex flex-col items-center justify-center text-gray-400 bg-gray-900/80">偵測不到攝影機，請檢查 USB 連線</div>
+        <video id="video" class="w-full h-full object-contain bg-gray-900 rounded" autoplay playsinline></video>
+        <div id="noCameraMsg" class="hidden absolute inset-0 flex flex-col items-center justify-center text-gray-400 bg-gray-900/80">偵測不到攝影機</div>
     </div>
 
     <!-- 紀錄面板側邊欄 -->
     <div id="sidebar" class="w-full md:w-[450px] bg-white flex flex-col shadow-2xl z-20 h-1/2 md:h-full transition-layout overflow-hidden shrink-0">
         
-        <!-- 控制與設定區 -->
-        <div class="p-4 md:p-5 bg-blue-50 border-b border-blue-100 shrink-0">
+        <div class="p-4 bg-blue-50 border-b border-blue-100 shrink-0">
             <div class="flex items-center justify-between mb-3">
-                <h1 class="text-xl font-bold text-blue-900 flex items-center">
-                    實驗紀錄單
-                </h1>
-                <div class="flex items-center gap-2">
-                    <span class="text-xs text-blue-600 font-bold border bg-white px-1.5 py-0.5 rounded shadow-sm">v2.2</span>
-                    <button id="fullscreenBtn" class="text-gray-400 hover:text-blue-600 transition-colors" title="全螢幕">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
-                    </button>
-                </div>
+                <h1 class="text-xl font-bold text-blue-900">實驗紀錄單 <span class="text-xs font-normal text-blue-600 bg-white px-1 border rounded ml-1">v2.7</span></h1>
             </div>
 
-            <div class="grid grid-cols-2 gap-3 mb-3">
-                <select id="gradeSelect" class="border rounded p-1.5 text-sm outline-none focus:ring-2 focus:ring-blue-300">
-                    <option value="7">七年級</option><option value="8" selected>八年級</option><option value="9">九年級</option>
-                </select>
-                <select id="classSelect" class="border rounded p-1.5 text-sm outline-none focus:ring-2 focus:ring-blue-300"></select>
+            <div class="grid grid-cols-2 gap-2 mb-3">
+                <select id="gradeSelect" class="border rounded p-1.5 text-sm outline-none"><option value="7">七年級</option><option value="8" selected>八年級</option><option value="9">九年級</option></select>
+                <select id="classSelect" class="border rounded p-1.5 text-sm outline-none"></select>
             </div>
             
-            <select id="expSelect" class="w-full border rounded p-1.5 font-bold text-blue-800 text-sm mb-3">
-                <option value="exp1">1. 實驗一：固定電阻 (測量V-I關係)</option>
-                <option value="exp2">2. 實驗二：電阻串聯</option>
-                <option value="exp3">3. 實驗三：電阻並聯</option>
-                <option value="exp4">4. 實驗四：並聯兩個電阻</option>
+            <select id="expSelect" class="w-full border rounded p-1.5 font-bold text-blue-800 text-sm mb-2">
+                <option value="exp1">1. 固定電阻 (1000Ω)</option>
+                <option value="exp2">2. 電阻串聯 (固定 3V)</option>
+                <option value="exp3">3. 電阻並聯 (固定 3V)</option>
+                <option value="exp4">4. 並聯迴路觀察</option>
             </select>
 
-            <!-- UI 調整區 -->
-            <div class="bg-white/50 p-2 rounded border border-blue-100 space-y-1.5">
-                <div class="flex items-center gap-2 text-[10px] text-gray-500 font-bold">
-                    <span class="w-16 shrink-0">文字：</span>
-                    <input type="range" id="fontSlider" min="10" max="24" value="14" class="flex-1 h-1 bg-blue-200 rounded appearance-none cursor-pointer">
-                    <span id="fontSizeDisplay" class="w-6 text-right">14</span>
+            <div class="bg-white/50 p-2 rounded border border-blue-100 flex gap-4">
+                <div class="flex items-center gap-2 text-[10px] text-gray-500 font-bold flex-1">
+                    文字：<input type="range" id="fontSlider" min="10" max="22" value="14" class="flex-1 h-1 bg-blue-200 rounded appearance-none">
                 </div>
-                <div class="flex items-center gap-2 text-[10px] text-gray-500 font-bold">
-                    <span class="w-16 shrink-0">首欄：</span>
-                    <input type="range" id="colWidthSlider" min="40" max="220" value="130" class="flex-1 h-1 bg-blue-200 rounded appearance-none cursor-pointer">
-                    <span id="colWidthDisplay" class="w-6 text-right">130</span>
+                <div class="flex items-center gap-2 text-[10px] text-gray-500 font-bold flex-1">
+                    首欄：<input type="range" id="colWidthSlider" min="50" max="200" value="140" class="flex-1 h-1 bg-blue-200 rounded appearance-none">
                 </div>
             </div>
         </div>
 
-        <!-- 數據表格與名單區 -->
-        <div class="flex-1 overflow-y-auto bg-gray-50 p-4 md:p-5 space-y-5 no-scrollbar">
-            
+        <div class="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-4 no-scrollbar">
             <!-- 表格容器 -->
             <div id="table-container" class="bg-white p-3 rounded-lg shadow-sm border border-gray-200 overflow-x-auto min-h-[100px]"></div>
             
-            <!-- 學生加扣分清單 -->
+            <!-- 學生評分區 -->
+            <div id="gradingPanel" class="hidden bg-blue-50 border-2 border-blue-200 p-4 rounded-xl shadow-inner animate-pulse-slow">
+                <div class="flex items-center justify-between mb-3">
+                    <span id="selectedStudentName" class="font-black text-blue-800 text-lg">選擇學生</span>
+                    <button onclick="closeGrading()" class="text-gray-400 hover:text-red-500 text-xl font-bold">✕</button>
+                </div>
+                <div class="flex flex-col gap-4">
+                    <div class="flex gap-3 justify-center">
+                        <button id="signPlus" class="sign-btn active-plus text-sm">加分 (+)</button>
+                        <button id="signMinus" class="sign-btn text-sm">扣分 (-)</button>
+                    </div>
+                    <div class="flex gap-2 justify-center">
+                        <button class="score-pill score-val active" data-val="1">1</button>
+                        <button class="score-pill score-val" data-val="2">2</button>
+                        <button class="score-pill score-val" data-val="3">3</button>
+                        <button class="score-pill score-val" data-val="4">4</button>
+                        <button class="score-pill score-val" data-val="5">5</button>
+                    </div>
+                    <button id="confirmScoreBtn" class="w-full bg-blue-600 text-white font-bold py-2 rounded-lg shadow-lg hover:bg-blue-700 transition-all active:scale-95">確認紀錄</button>
+                </div>
+            </div>
+
+            <!-- 名單容器 -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                 <div class="bg-gray-100 px-4 py-2 border-b flex justify-between items-center text-sm font-bold">
-                    <span class="flex items-center"><svg class="w-4 h-4 mr-1 text-gray-500" fill="currentColor" viewBox="0 0 20 20"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"></path></svg>課堂加扣分名單</span>
+                    <span>名單 (點擊可評分)</span>
                     <span id="studentCount" class="text-xs font-mono bg-gray-200 px-2 py-0.5 rounded text-gray-600">--</span>
                 </div>
-                <div id="student-list" class="divide-y divide-gray-100 max-h-[400px] overflow-y-auto no-scrollbar">
-                    <div class="p-8 text-center text-gray-400 text-sm">請選擇班級載入名單</div>
-                </div>
+                <div id="student-list" class="divide-y divide-gray-100 max-h-[400px] overflow-y-auto no-scrollbar"></div>
             </div>
         </div>
 
-        <!-- 底部按鈕區 -->
-        <div class="p-4 bg-white border-t shrink-0 flex flex-col gap-2 shadow-inner">
-            <button id="calcBtn" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2.5 rounded shadow transition-all active:scale-95 flex justify-center items-center">
-                自動計算 (V/I) × 1000
-            </button>
+        <div class="p-4 bg-white border-t shrink-0 flex flex-col gap-2">
+            <button id="calcBtn" class="w-full bg-green-500 text-white font-bold py-2 rounded text-sm shadow hover:bg-green-600 active:scale-95">自動計算 (V/I) × 1000</button>
             <div class="flex gap-2">
-                <button id="loadBtn" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 rounded text-xs shadow transition-all active:scale-95">提取紀錄</button>
-                <button id="clearBtn" class="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2 rounded text-xs shadow transition-all active:scale-95">清除紀錄</button>
-                <button id="saveBtn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded text-xs shadow transition-all active:scale-95">儲存數據</button>
+                <button id="loadBtn" class="flex-1 bg-amber-500 text-white font-bold py-2 rounded text-xs shadow hover:bg-amber-600">提取紀錄</button>
+                <button id="clearBtn" class="flex-1 bg-red-500 text-white font-bold py-2 rounded text-xs shadow hover:bg-red-600">清除紀錄</button>
+                <button id="saveBtn" class="flex-1 bg-blue-600 text-white font-bold py-2 rounded text-xs shadow hover:bg-blue-700">儲存數據</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Modal -->
 <div id="customModal" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 hidden p-4">
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 transform scale-95 transition-transform">
         <h3 id="modalTitle" class="text-lg font-bold mb-3 border-b pb-2">提示</h3>
-        <p id="modalMessage" class="text-gray-600 mb-6 text-sm whitespace-pre-wrap leading-relaxed"></p>
-        <button id="modalCloseBtn" class="w-full bg-blue-600 text-white font-bold py-2 rounded shadow hover:bg-blue-700">確認</button>
+        <p id="modalMessage" class="text-gray-600 mb-6 text-sm whitespace-pre-wrap"></p>
+        <button id="modalCloseBtn" class="w-full bg-blue-600 text-white font-bold py-2 rounded shadow">確認</button>
     </div>
 </div>
 
 <script>
+    // ⚠️ 替換成您最新的 GAS 網址
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbzGj5KcJxD9iXeR5jiQEe_g9FhK5eYF3UFpyqPaQzxm5Fcns5-KdcOCGUYbbZw6AQ0g/exec'; 
 
-    // 初始化班級選單
     const classSelect = document.getElementById('classSelect');
     for (let i = 1; i <= 17; i++) {
         let val = i < 10 ? '0' + i : i;
@@ -198,28 +188,16 @@
     let isSidebarOpen = true;
 
     function updateLayout() {
-        if (!isSidebarOpen) {
-            sidebar.style.width = '0px'; sidebar.style.minWidth = '0px'; sidebarIcon.style.transform = 'rotate(180deg)';
-        } else {
-            const isMobile = window.innerWidth < 768;
-            sidebar.style.width = isMobile ? '100%' : '450px'; sidebar.style.minWidth = isMobile ? '100%' : '450px'; sidebarIcon.style.transform = 'rotate(0deg)';
-        }
+        if (!isSidebarOpen) { sidebar.style.width = '0px'; sidebar.style.minWidth = '0px'; sidebarIcon.style.transform = 'rotate(180deg)'; }
+        else { const isMobile = window.innerWidth < 768; sidebar.style.width = isMobile ? '100%' : '450px'; sidebar.style.minWidth = isMobile ? '100%' : '450px'; sidebarIcon.style.transform = 'rotate(0deg)'; }
     }
     toggleSidebarBtn.addEventListener('click', () => { isSidebarOpen = !isSidebarOpen; updateLayout(); });
     window.addEventListener('resize', updateLayout);
 
-    // UI 滑桿控制
-    const sliders = {
-        'fontSlider': { display: 'fontSizeDisplay', unit: 'px', var: '--font-size' },
-        'colWidthSlider': { display: 'colWidthDisplay', unit: 'px', var: '--col1-width' }
-    };
-    Object.keys(sliders).forEach(id => {
-        const slider = document.getElementById(id);
-        slider.addEventListener('input', () => {
-            document.getElementById(sliders[id].display).textContent = slider.value;
-            document.documentElement.style.setProperty(sliders[id].var, slider.value + sliders[id].unit);
-        });
-    });
+    const fontSlider = document.getElementById('fontSlider');
+    const colWidthSlider = document.getElementById('colWidthSlider');
+    fontSlider.addEventListener('input', () => document.documentElement.style.setProperty('--font-size', fontSlider.value + 'px'));
+    colWidthSlider.addEventListener('input', () => document.documentElement.style.setProperty('--col1-width', colWidthSlider.value + 'px'));
 
     function showModal(title, message) {
         document.getElementById('modalTitle').textContent = title;
@@ -228,7 +206,7 @@
     }
     document.getElementById('modalCloseBtn').addEventListener('click', () => document.getElementById('customModal').classList.add('hidden'));
 
-    // 相機控制
+    // --- 相機控制 (強制 4K 畫質) ---
     const video = document.getElementById('video');
     const cameraSelect = document.getElementById('cameraSelect');
     async function initCamera() {
@@ -237,21 +215,26 @@
             const devices = await navigator.mediaDevices.enumerateDevices();
             const videoDevices = devices.filter(d => d.kind === 'videoinput');
             cameraSelect.innerHTML = '';
-            videoDevices.forEach((d, i) => {
-                cameraSelect.innerHTML += `<option value="${d.deviceId}">${d.label || '鏡頭'+(i+1)}</option>`;
-            });
+            videoDevices.forEach((d, i) => cameraSelect.innerHTML += `<option value="${d.deviceId}">${d.label || '鏡頭'+(i+1)}</option>`);
             startStream();
         } catch (e) { document.getElementById('noCameraMsg').classList.remove('hidden'); }
     }
     async function startStream() {
         if (!cameraSelect.value) return;
-        const s = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: cameraSelect.value }, width: 1920, height: 1080 } });
-        video.srcObject = s;
+        try {
+            const s = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: cameraSelect.value }, width: { ideal: 3840 }, height: { ideal: 2160 } } });
+            video.srcObject = s;
+        } catch (err) {
+            try {
+                const s = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: cameraSelect.value } } });
+                video.srcObject = s;
+            } catch (e) {}
+        }
     }
     cameraSelect.addEventListener('change', startStream);
     document.getElementById('refreshCamBtn').addEventListener('click', initCamera);
 
-    // 表格渲染邏輯
+    // --- 實驗表格渲染 ---
     function renderTable() {
         const val = document.getElementById('expSelect').value;
         const container = document.getElementById('table-container');
@@ -261,50 +244,43 @@
             html = `
                 <h3 class="font-bold text-center text-blue-900 mb-2 border-b">1. 固定電阻 (1000Ω 棕黑紅金)</h3>
                 <table class="border-collapse text-center">
-                    <thead><tr class="bg-blue-50 border text-[0.9em]">
-                        <th class="border">電壓</th><th class="border">理論(Ω)</th><th class="border">電流(mA)</th><th class="border">比值(Ω)</th>
-                    </tr></thead>
+                    <thead><tr class="bg-blue-50 border"><th class="border">電壓</th><th class="border">實際電壓(V)</th><th class="border">電流(mA)</th><th class="border">比值(Ω)</th></tr></thead>
                     <tbody>
-                        <tr><td class="border font-bold bg-gray-50">1.5V</td><td class="border"><input type="number" class="table-input" value="1000"></td><td class="border"><input type="number" class="table-input input-i"></td><td class="border font-bold result-r">-</td></tr>
-                        <tr><td class="border font-bold bg-gray-50">3V</td><td class="border"><input type="number" class="table-input" value="1000"></td><td class="border"><input type="number" class="table-input input-i"></td><td class="border font-bold result-r">-</td></tr>
-                        <tr><td class="border font-bold bg-gray-50">4.5V</td><td class="border"><input type="number" class="table-input" value="1000"></td><td class="border"><input type="number" class="table-input input-i"></td><td class="border font-bold result-r">-</td></tr>
+                        <tr><td class="border bg-gray-50">1.5V</td><td class="border"><input type="number" class="table-input input-v"></td><td class="border"><input type="number" class="table-input input-i"></td><td class="border font-bold result-r">-</td></tr>
+                        <tr><td class="border bg-gray-50">3V</td><td class="border"><input type="number" class="table-input input-v"></td><td class="border"><input type="number" class="table-input input-i"></td><td class="border font-bold result-r">-</td></tr>
+                        <tr><td class="border bg-gray-50">4.5V</td><td class="border"><input type="number" class="table-input input-v"></td><td class="border"><input type="number" class="table-input input-i"></td><td class="border font-bold result-r">-</td></tr>
                     </tbody>
                 </table>
                 <div class="mt-3 text-[var(--font-size)] space-y-1 text-gray-700">
-                    <p>a. 定值？ <input type="text" class="fill-blank"> 意義： <input type="text" class="fill-blank w-[120px]"></p>
+                    <p>a. 電壓除以電流是否是一個定值？ <input type="text" class="fill-blank"> 意義： <input type="text" class="fill-blank w-[120px]"></p>
                     <p>b. 電壓變 <input type="text" class="fill-blank w-8">，電流變 <input type="text" class="fill-blank w-8">，成 <input type="text" class="fill-blank w-8"> 比</p>
                 </div>`;
         } else if (val === 'exp2' || val === 'exp3') {
-            const isSeries = val === 'exp2';
-            const sym = isSeries ? '+' : '//';
-            const title = isSeries ? '實驗二：電阻串聯 (固定 3V)' : '實驗三：電阻並聯 (固定 3V)';
+            const sym = val === 'exp2' ? '+' : '//';
+            const title = val === 'exp2' ? '實驗二：電阻串聯 (固定 3V)' : '實驗三：電阻並聯 (固定 3V)';
             html = `
                 <h3 class="font-bold text-center text-blue-900 mb-2 border-b">${title}</h3>
                 <table class="border-collapse text-center">
-                    <thead><tr class="bg-blue-50 border text-[0.75em]">
-                        <th class="border">組合</th><th class="border">理論(Ω)</th><th class="border">三用電表(Ω)</th><th class="border">電壓(V)</th><th class="border">電流(mA)</th><th class="border">比值(Ω)</th>
-                    </tr></thead>
+                    <thead><tr class="bg-blue-50 border text-[0.8em]"><th class="border">電阻組合</th><th class="border">三用電表(Ω)</th><th class="border">電壓(V)</th><th class="border">電流(mA)</th><th class="border">比值(Ω)</th></tr></thead>
                     <tbody>
-                        <tr><td class="border text-left px-1">1個：<input type="text" class="w-10 fill-blank h-5"></td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input input-v"></td><td class="border"><input type="number" class="table-input input-i"></td><td class="border font-bold result-r text-[0.8em]">-</td></tr>
-                        <tr><td class="border text-left px-1">2個：<input type="text" class="w-8 fill-blank h-5">${sym}<input type="text" class="w-8 fill-blank h-5"></td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input input-v"></td><td class="border"><input type="number" class="table-input input-i"></td><td class="border font-bold result-r text-[0.8em]">-</td></tr>
-                        <tr><td class="border text-left px-1">3個：<input type="text" class="w-5 fill-blank h-5">${sym}<input type="text" class="w-5 fill-blank h-5">${sym}<input type="text" class="w-5 fill-blank h-5"></td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input input-v"></td><td class="border"><input type="number" class="table-input input-i"></td><td class="border font-bold result-r text-[0.8em]">-</td></tr>
+                        <tr><td class="border px-1">1個：<input type="text" class="fill-blank w-10" value="1K"></td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input input-v"></td><td class="border"><input type="number" class="table-input input-i"></td><td class="border font-bold result-r">-</td></tr>
+                        <tr><td class="border px-1">2個：<input type="text" class="fill-blank w-8" value="1K">${sym}<input type="text" class="fill-blank w-8" value="1K"></td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input input-v"></td><td class="border"><input type="number" class="table-input input-i"></td><td class="border font-bold result-r">-</td></tr>
+                        <tr><td class="border px-1">3個：<input type="text" class="fill-blank w-6" value="1K">${sym}<input type="text" class="fill-blank w-6" value="1K">${sym}<input type="text" class="fill-blank w-6" value="1K"></td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input input-v"></td><td class="border"><input type="number" class="table-input input-i"></td><td class="border font-bold result-r">-</td></tr>
                     </tbody>
                 </table>
                 <div class="mt-3 text-[var(--font-size)]">結論：<input type="text" class="fill-blank w-full"></div>`;
         } else if (val === 'exp4') {
             html = `
-                <h3 class="font-bold text-center text-green-700 mb-2 border-b">4. 並聯兩個電阻，觀察每一迴路的電壓及電流</h3>
+                <h3 class="font-bold text-center text-green-700 mb-2 border-b">4. 並聯兩個電阻觀察迴路</h3>
                 <table class="border-collapse text-center">
-                    <thead><tr class="bg-green-50 border text-[0.85em]">
-                        <th class="border">電阻</th><th class="border">理論(Ω)</th><th class="border">三用電表(Ω)</th><th class="border">電壓(V)</th><th class="border">電流(mA)</th>
-                    </tr></thead>
+                    <thead><tr class="bg-green-50 border"><th class="border">電阻</th><th class="border">電阻(Ω)</th><th class="border">電壓(V)</th><th class="border">電流(mA)</th></tr></thead>
                     <tbody>
-                        <tr><td class="border font-bold bg-gray-50">迴路 1</td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input"></td></tr>
-                        <tr><td class="border font-bold bg-gray-50">迴路 2</td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input"></td></tr>
-                        <tr><td class="border font-bold bg-gray-50 italic">總</td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input"></td></tr>
+                        <tr><td class="border font-bold bg-gray-50">迴路 1</td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input"></td></tr>
+                        <tr><td class="border font-bold bg-gray-50">迴路 2</td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input"></td></tr>
+                        <tr><td class="border font-bold bg-gray-50 italic">總</td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input"></td><td class="border"><input type="number" class="table-input"></td></tr>
                     </tbody>
                 </table>
-                <div class="mt-4 text-[var(--font-size)] space-y-1.5 text-gray-800 font-medium">
+                <div class="mt-4 text-[var(--font-size)] space-y-1.5 text-gray-800">
                     <p>A: 電阻比：迴路1:迴路2 = <input type="text" class="fill-blank w-12"> : <input type="text" class="fill-blank w-12"></p>
                     <p>B: 電流比：迴路1:迴路2 = <input type="text" class="fill-blank w-12"> : <input type="text" class="fill-blank w-12"></p>
                     <p>C: 結論：<input type="text" class="fill-blank w-full"></p>
@@ -314,11 +290,97 @@
         executeLoad(true);
     }
 
+    // --- 評分邏輯 ---
+    let currentStudent = null;
+    let scoreSign = 1; // 1: 加, -1: 扣
+    let scoreVal = 1;
+
+    function openGrading(s) {
+        currentStudent = s;
+        document.getElementById('selectedStudentName').textContent = `[No.${s.no}] ${s.name}`;
+        document.getElementById('gradingPanel').classList.remove('hidden');
+        document.querySelectorAll('.student-item').forEach(el => el.classList.remove('selected'));
+        document.querySelector(`.student-item[data-row="${s.row}"]`).classList.add('selected');
+    }
+
+    function closeGrading() {
+        document.getElementById('gradingPanel').classList.add('hidden');
+        document.querySelectorAll('.student-item').forEach(el => el.classList.remove('selected'));
+        currentStudent = null;
+    }
+
+    document.getElementById('signPlus').addEventListener('click', () => {
+        scoreSign = 1; document.getElementById('signPlus').classList.add('active-plus'); document.getElementById('signMinus').classList.remove('active-minus');
+    });
+    document.getElementById('signMinus').addEventListener('click', () => {
+        scoreSign = -1; document.getElementById('signMinus').classList.add('active-minus'); document.getElementById('signPlus').classList.remove('active-plus');
+    });
+
+    document.querySelectorAll('.score-val').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.score-val').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            scoreVal = parseInt(btn.dataset.val);
+        });
+    });
+
+    document.getElementById('confirmScoreBtn').addEventListener('click', async () => {
+        if (!currentStudent) return;
+        const amount = scoreSign * scoreVal;
+        const btn = document.getElementById('confirmScoreBtn');
+        btn.disabled = true; btn.textContent = '雲端紀錄中...';
+        
+        const r = await apiCall({ action: 'updateScore', studentRow: currentStudent.row, amount: amount });
+        if (r.status === 'success') {
+            const disp = document.querySelector(`.score-display[data-row="${currentStudent.row}"]`);
+            if (disp) disp.textContent = r.newVal + ' 分';
+            
+            const eff = document.createElement('div'); eff.textContent = (amount > 0 ? '+' : '') + amount;
+            eff.className = `absolute right-24 top-2 font-black text-xl pointer-events-none animate-bounce ${amount > 0 ? 'text-green-500' : 'text-red-500'}`;
+            document.querySelector(`.student-item[data-row="${currentStudent.row}"]`).appendChild(eff);
+            setTimeout(() => { eff.remove(); closeGrading(); }, 800);
+        } else {
+            showModal('錯誤', '分數儲存失敗，請檢查網路連線。');
+        }
+        btn.disabled = false; btn.textContent = '確認紀錄';
+    });
+
+    // --- 數據通訊 ---
+    async function apiCall(p) {
+        try { const r = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify(p) }); return await r.json(); }
+        catch (e) { return { status: 'error' }; }
+    }
+
+    async function loadStudents() {
+        const list = document.getElementById('student-list');
+        list.innerHTML = '<div class="p-8 text-center text-gray-400 text-sm">載入名單中...</div>';
+        const r = await apiCall({ action: 'getStudents', grade: document.getElementById('gradeSelect').value, className: document.getElementById('classSelect').value });
+        if (r.status === 'success' && r.data.length > 0) {
+            document.getElementById('studentCount').textContent = r.data.length + '人';
+            list.innerHTML = '';
+            r.data.forEach(s => {
+                const item = document.createElement('div');
+                item.className = "student-item flex items-center justify-between px-4 py-3 relative border-b border-gray-100";
+                item.dataset.row = s.row;
+                item.onclick = () => openGrading(s);
+                item.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <span class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">${s.no}</span>
+                        <span class="font-bold text-gray-800 text-base">${s.name}</span>
+                    </div>
+                    <div class="flex flex-col items-end">
+                        <span class="text-[10px] text-gray-400 font-bold uppercase leading-none mb-1">總分</span>
+                        <span class="text-sm font-black px-2 py-0.5 bg-amber-100 text-amber-700 rounded-md score-display" data-row="${s.row}">${s.score} 分</span>
+                    </div>`;
+                list.appendChild(item);
+            });
+        } else { list.innerHTML = '<div class="p-8 text-center text-gray-400 italic">尚未查到該班級資料</div>'; }
+    }
+
     function calculateRatio() {
         document.querySelectorAll('#table-container tr').forEach(row => {
             const vIn = row.querySelector('.input-v');
             const iIn = row.querySelector('.input-i');
-            // 如果沒 input-v 就從第一格抓 (例如實驗一)
             const v = vIn ? parseFloat(vIn.value) : parseFloat(row.cells[0]?.innerText.replace('V',''));
             const i = iIn ? parseFloat(iIn.value) : null;
             const res = row.querySelector('.result-r');
@@ -326,128 +388,43 @@
         });
     }
 
-    async function apiCall(p) {
-        try { const r = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify(p) }); return await r.json(); }
-        catch (e) { return { status: 'error' }; }
-    }
-
-    // 名單載入功能 (含座號、姓名、今日分數)
-    async function loadStudents() {
-        const list = document.getElementById('student-list');
-        list.innerHTML = '<div class="p-8 text-center text-gray-400 text-sm animate-pulse">正在從雲端載入名單...</div>';
-        
-        const payload = { 
-            action: 'getStudents', 
-            grade: document.getElementById('gradeSelect').value, 
-            className: document.getElementById('classSelect').value 
-        };
-        
-        const res = await apiCall(payload);
-        if (res.status === 'success' && res.data.length > 0) {
-            document.getElementById('studentCount').textContent = res.data.length + ' 人';
-            list.innerHTML = '';
-            res.data.forEach(s => {
-                const item = document.createElement('div');
-                item.className = "student-item flex items-center justify-between px-4 py-2 relative";
-                item.innerHTML = `
-                    <div class="flex flex-col">
-                        <span class="text-[10px] text-blue-500 font-mono font-bold leading-none mb-1">座號 ${s.no}</span>
-                        <span class="font-bold text-gray-800 leading-none">${s.name}</span>
-                    </div>
-                    <div class="flex items-center gap-3">
-                        <div class="flex flex-col items-end">
-                            <span class="text-[10px] text-gray-400 font-bold uppercase leading-none mb-1">Today</span>
-                            <span class="text-sm font-black px-2 py-0.5 bg-amber-100 text-amber-700 rounded-md score-display" data-row="${s.row}">${s.score} 分</span>
-                        </div>
-                        <div class="flex gap-1">
-                            <button onclick="updateScore(${s.row}, -1, this)" class="w-8 h-8 rounded-lg bg-red-50 text-red-600 font-bold hover:bg-red-500 hover:text-white transition-all active:scale-90">-1</button>
-                            <button onclick="updateScore(${s.row}, 1, this)" class="w-8 h-8 rounded-lg bg-green-50 text-green-600 font-bold hover:bg-green-500 hover:text-white transition-all active:scale-90">+1</button>
-                        </div>
-                    </div>`;
-                list.appendChild(item);
-            });
-        } else {
-            list.innerHTML = '<div class="p-8 text-center text-gray-400 italic">尚未查到該班級名單紀錄</div>';
-            document.getElementById('studentCount').textContent = '0 人';
-        }
-    }
-
-    async function updateScore(row, delta, btn) {
-        const originalText = btn.textContent;
-        btn.disabled = true;
-        btn.textContent = '...';
-        
-        const res = await apiCall({ action: 'updateScore', studentRow: row, delta: delta });
-        if (res.status === 'success') {
-            const display = document.querySelector(`.score-display[data-row="${row}"]`);
-            if (display) display.textContent = res.newVal + ' 分';
-            
-            // 飄浮動畫
-            const eff = document.createElement('div');
-            eff.textContent = delta > 0 ? '+1' : '-1';
-            eff.className = `absolute right-24 top-2 font-black text-xl pointer-events-none animate-bounce ${delta > 0 ? 'text-green-500' : 'text-red-500'}`;
-            btn.parentElement.parentElement.appendChild(eff);
-            setTimeout(() => eff.remove(), 800);
-        }
-        btn.disabled = false;
-        btn.textContent = originalText;
-    }
-
     async function executeLoad(isSilent) {
-        const p = { 
-            action: 'load', 
-            grade: document.getElementById('gradeSelect').value, 
-            className: document.getElementById('classSelect').value, 
-            expType: document.getElementById('expSelect').value 
-        };
+        const p = { action: 'load', grade: document.getElementById('gradeSelect').value, className: document.getElementById('classSelect').value, expType: document.getElementById('expSelect').value };
         const r = await apiCall(p);
         if (r.status === 'success') {
             const ins = document.querySelectorAll('#table-container input');
             ins.forEach((input, idx) => { if (r.data[idx] !== undefined) input.value = r.data[idx]; });
             calculateRatio();
-            if (!isSilent) showModal('讀取成功', '雲端紀錄已提取完成。');
-        } else {
-            document.querySelectorAll('#table-container input').forEach(input => input.value = '');
-        }
+        } else { document.querySelectorAll('#table-container input').forEach(input => input.value = ''); }
     }
 
     document.getElementById('saveBtn').addEventListener('click', async () => {
         const data = Array.from(document.querySelectorAll('#table-container input')).map(i => i.value);
-        const res = await apiCall({ 
-            action: 'save', 
-            grade: document.getElementById('gradeSelect').value, 
-            className: document.getElementById('classSelect').value, 
-            expType: document.getElementById('expSelect').value, 
-            data 
-        });
-        if (res.status === 'success') showModal('儲存完成', '數據已同步至 Google 試算表。');
+        const res = await apiCall({ action: 'save', grade: document.getElementById('gradeSelect').value, className: document.getElementById('classSelect').value, expType: document.getElementById('expSelect').value, data });
+        if (res.status === 'success') showModal('完成', '數據已儲存。');
     });
 
     document.getElementById('calcBtn').addEventListener('click', calculateRatio);
     document.getElementById('loadBtn').addEventListener('click', () => executeLoad(false));
     document.getElementById('clearBtn').addEventListener('click', async () => {
         const res = await apiCall({ action: 'clear', grade: document.getElementById('gradeSelect').value, className: document.getElementById('classSelect').value, expType: document.getElementById('expSelect').value });
-        if (res.status === 'success') {
-            document.querySelectorAll('#table-container input').forEach(i => i.value = '');
-            showModal('清除成功', '該班級的實驗紀錄已刪除。');
-        }
+        if (res.status === 'success') { document.querySelectorAll('#table-container input').forEach(i => i.value = ''); showModal('清除成功', '紀錄已刪除。'); }
     });
 
     document.getElementById('expSelect').addEventListener('change', renderTable);
-    const updateAll = () => { renderTable(); loadStudents(); };
+    const updateAll = () => { renderTable(); loadStudents(); closeGrading(); };
     document.getElementById('gradeSelect').addEventListener('change', updateAll);
     document.getElementById('classSelect').addEventListener('change', updateAll);
     
-    let isLayoutSwapped = false;
     document.getElementById('swapLayoutBtn').addEventListener('click', () => { 
-        isLayoutSwapped = !isLayoutSwapped; 
-        mainContainer.classList.toggle('md:flex-row', !isLayoutSwapped); 
-        mainContainer.classList.toggle('md:flex-row-reverse', isLayoutSwapped); 
+        mainContainer.classList.toggle('md:flex-row'); mainContainer.classList.toggle('md:flex-row-reverse'); 
     });
-
     document.getElementById('fullscreenBtn').addEventListener('click', () => {
-        if (!document.fullscreenElement) document.documentElement.requestFullscreen();
-        else document.exitFullscreen();
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(e => console.log(e));
+        } else {
+            document.exitFullscreen();
+        }
     });
 
     window.onload = () => { initCamera(); renderTable(); loadStudents(); updateLayout(); };
