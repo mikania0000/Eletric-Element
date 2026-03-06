@@ -1,12 +1,13 @@
 <!--
 ==========================================
 實驗紀錄系統 - 前端網頁 (旗艦功能版)
-版本：v2.7 (完美對接 D 欄總分累加機制、4K畫質、全螢幕修復)
+版本：v2.7 (完美對接 D 欄總分累加機制、4K畫質、全螢幕修復、保留預設值)
 功能：
 1. 實物投影機視訊 (支援全螢幕、左右互換、收納功能，強制4K畫質)
 2. UI 彈性控制：字體大小、表格比例、首欄寬度調整
 3. 實驗表格精確對齊 Word 圖片需求 (含填空題)
 4. 評分預選機制：先選分數再儲存，並即時顯示 D 欄累計總分
+5. 修正讀取空紀錄或清除紀錄時，保留預設 1K 與 1000 數值
 ==========================================
 -->
 <!DOCTYPE html>
@@ -395,7 +396,11 @@
             const ins = document.querySelectorAll('#table-container input');
             ins.forEach((input, idx) => { if (r.data[idx] !== undefined) input.value = r.data[idx]; });
             calculateRatio();
-        } else { document.querySelectorAll('#table-container input').forEach(input => input.value = ''); }
+        } else { 
+            // 找不到紀錄時，恢復預設值(例如1K)
+            document.querySelectorAll('#table-container input').forEach(input => input.value = input.defaultValue); 
+            calculateRatio();
+        }
     }
 
     document.getElementById('saveBtn').addEventListener('click', async () => {
@@ -408,7 +413,11 @@
     document.getElementById('loadBtn').addEventListener('click', () => executeLoad(false));
     document.getElementById('clearBtn').addEventListener('click', async () => {
         const res = await apiCall({ action: 'clear', grade: document.getElementById('gradeSelect').value, className: document.getElementById('classSelect').value, expType: document.getElementById('expSelect').value });
-        if (res.status === 'success') { document.querySelectorAll('#table-container input').forEach(i => i.value = ''); showModal('清除成功', '紀錄已刪除。'); }
+        if (res.status === 'success') { 
+            document.querySelectorAll('#table-container input').forEach(i => i.value = i.defaultValue); 
+            calculateRatio();
+            showModal('清除成功', '紀錄已刪除。'); 
+        }
     });
 
     document.getElementById('expSelect').addEventListener('change', renderTable);
